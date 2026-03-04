@@ -286,12 +286,12 @@ export default function PropertiesPage() {
       {/* Modal */}
       {showModal && currentProperty && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="bg-white rounded-2xl w-full max-w-3xl mx-4 max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="p-6 border-b" style={{ borderColor: '#E5E7EB' }}>
               <h2 className="text-lg font-bold" style={{ color: '#131B2B' }}>{currentProperty.id ? 'Edit Property' : 'New Property'}</h2>
             </div>
             <form onSubmit={handleSave} className="p-6">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="block text-xs font-medium mb-1.5" style={{ color: '#374151' }}>Property Title *</label>
                   <input type="text" required value={currentProperty.title || ''}

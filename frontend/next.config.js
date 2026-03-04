@@ -6,16 +6,18 @@ const nextConfig = {
     API_URL: process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://localhost:3001',
   },
   async rewrites() {
-    // Only proxy in development
-    if (process.env.NODE_ENV === 'development') {
-      return [
-        {
-          source: '/api/:path*',
-          destination: 'http://localhost:3001/api/:path*',
-        },
-      ];
-    }
-    return [];
+    return [
+      {
+        // Proxy all /api/* to the backend (Next.js internal routes like /api/cloudinary take priority)
+        source: '/api/:path*',
+        destination: 'http://localhost:3001/api/:path*',
+      },
+      {
+        // Landscape AI proxy
+        source: '/landscape-api/:path*',
+        destination: 'http://localhost:4000/api/:path*',
+      },
+    ];
   },
   async headers() {
     return [

@@ -236,7 +236,7 @@ export default function RentListingsPage() {
       {/* Modal */}
       {showModal && current && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="bg-white rounded-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="p-6 border-b" style={{ borderColor: '#E5E7EB' }}>
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #C9A96E, #8A6F2F)' }}>
@@ -246,7 +246,7 @@ export default function RentListingsPage() {
               </div>
             </div>
             <form onSubmit={handleSave} className="p-6">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="block text-xs font-medium mb-1.5" style={{ color: '#374151' }}>Title *</label>
                   <input type="text" required value={current.title || ''} onChange={e => setCurrent({ ...current, title: e.target.value })}

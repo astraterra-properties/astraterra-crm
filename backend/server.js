@@ -6,6 +6,8 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const { pool } = require('./config/database');
 
 // Load environment variables
@@ -32,7 +34,8 @@ process.on('SIGTERM', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+// ⚠️ Always use 3001 — OpenClaw sets PORT=59053 in shell env which must be ignored
+const PORT = 3001;
 
 // Test database connection on startup
 pool.query("SELECT datetime('now') as now", (err, res) => {
@@ -78,10 +81,181 @@ pool.query("SELECT datetime('now') as now", (err, res) => {
   }
 })();
 
+// Initialize Documents table
+(async () => {
+  const { query: dbQuery } = require('./config/database');
+  try {
+    await dbQuery(`CREATE TABLE IF NOT EXISTS documents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      original_name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      entity_type TEXT NOT NULL DEFAULT 'company',
+      entity_id INTEGER,
+      entity_name TEXT,
+      drive_file_id TEXT,
+      drive_view_link TEXT,
+      drive_download_link TEXT,
+      drive_folder_id TEXT,
+      file_size INTEGER DEFAULT 0,
+      mime_type TEXT,
+      notes TEXT,
+      uploaded_by TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    )`);
+    console.log('✅ Documents table initialized');
+  } catch (e) {
+    console.error('Documents table init error:', e.message);
+  }
+})();
+
+// Initialize Brochure Leads table
+(async () => {
+  const { query: dbQuery } = require('./config/database');
+  try {
+    await dbQuery(`CREATE TABLE IF NOT EXISTS brochure_leads (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT NOT NULL, email TEXT NOT NULL, project_name TEXT, project_slug TEXT, brochure_url TEXT, ip_address TEXT, created_at TEXT DEFAULT (datetime('now')))`);
+    console.log('✅ Brochure leads table initialized');
+  } catch (e) {
+    console.error('Brochure leads table init error:', e.message);
+  }
+})();
+
+// Initialize Complaints table
+(async () => {
+  const { query: dbQuery } = require('./config/database');
+  try {
+    await dbQuery(`CREATE TABLE IF NOT EXISTS complaints (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT DEFAULT '',
+      phone TEXT DEFAULT '',
+      property_ref TEXT DEFAULT '',
+      nature TEXT DEFAULT '',
+      details TEXT NOT NULL,
+      resolution TEXT DEFAULT '',
+      submitted_at TEXT DEFAULT '',
+      source TEXT DEFAULT 'website-complaints-form',
+      status TEXT DEFAULT 'New',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    )`);
+    console.log('✅ Complaints table initialized');
+  } catch (e) {
+    console.error('Complaints table init error:', e.message);
+  }
+})();
+
+// Initialize Notifications table
+(async () => {
+  const { query: dbQuery } = require('./config/database');
+  try {
+    await dbQuery(`CREATE TABLE IF NOT EXISTS notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      type TEXT DEFAULT 'info',
+      icon TEXT DEFAULT '🔔',
+      title TEXT NOT NULL,
+      body TEXT DEFAULT '',
+      link TEXT DEFAULT '',
+      meta TEXT DEFAULT '{}',
+      is_read INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    )`);
+    console.log('✅ Notifications table initialized');
+  } catch (e) {
+    console.error('Notifications table init error:', e.message);
+  }
+})();
+
+// Initialize Portal Integrations table + seed default portals
+(async () => {
+  const { query: dbQuery } = require('./config/database');
+  try {
+    await dbQuery(`CREATE TABLE IF NOT EXISTS portal_integrations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      portal_name TEXT NOT NULL UNIQUE,
+      api_key TEXT,
+      api_secret TEXT,
+      account_id TEXT,
+      status TEXT DEFAULT 'disconnected',
+      last_sync TEXT,
+      leads_synced INTEGER DEFAULT 0,
+      listings_synced INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    )`);
+    // Seed default portals — INSERT OR IGNORE is safe with UNIQUE constraint on portal_name
+    const defaults = ['Bayut', 'Property Finder', 'Dubizzle'];
+    for (const name of defaults) {
+      await dbQuery(
+        `INSERT OR IGNORE INTO portal_integrations (portal_name, status) VALUES ($1, 'disconnected')`,
+        [name]
+      ).catch(() => {}); // silently ignore if already exists
+    }
+    // Seed Website integration — always connected
+    await dbQuery(
+      `INSERT OR IGNORE INTO portal_integrations (portal_name, status) VALUES ('Website', 'connected')`,
+      []
+    ).catch(() => {});
+    console.log('✅ Portal integrations table initialized');
+  } catch (e) {
+    console.error('Portal integrations init error:', e.message);
+  }
+})();
+
+// Trust the first proxy (Cloudflare / nginx) so rate limiting uses real client IP
+app.set('trust proxy', 1);
+
+// ── Security Middleware ───────────────────────────────────────────────────────
+
+// Helmet — sets secure HTTP headers (XSS, clickjacking, MIME sniffing, HSTS, etc.)
+app.use(helmet({
+  contentSecurityPolicy: false, // disabled — Next.js frontend manages its own CSP
+  crossOriginEmbedderPolicy: false, // needed for Jitsi iframe
+  hsts: {
+    maxAge: 31536000,       // 1 year
+    includeSubDomains: true,
+    preload: true,
+  },
+}));
+
+// Rate limiter for auth endpoints — prevents brute-force attacks
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,   // 15-minute window
+  max: 20,                      // max 20 auth attempts per window per IP
+  message: { error: 'Too many login attempts. Please try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// General API rate limiter
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,   // 1-minute window
+  max: 300,               // max 300 requests/min per IP
+  message: { error: 'Too many requests. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.path.startsWith('/internal/'), // skip internal queue polling
+});
+
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+app.use('/api', apiLimiter);
+
 // Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(cors({
+  origin: [
+    'https://crm.astraterra.ae',
+    'https://www.astraterra.ae',
+    'https://astraterra.ae',
+    'http://localhost:3000',   // kept for local development
+    'http://localhost:3001',
+  ],
+  credentials: true,
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/uploads', require('express').static(require('path').join(__dirname, '..', 'data', 'uploads')));
 
 // Health check endpoint
@@ -115,9 +289,21 @@ const leadActivityRoutes = require('./routes/lead-activity');
 const socialRoutes = require('./routes/social');
 const hrRoutes = require('./routes/hr');
 const pixxiRoutes = require('./routes/pixxi');
+const complaintsRoutes = require('./routes/complaints');
+const documentsRoutes = require('./routes/documents');
+const brochureLeadsRoutes = require('./routes/brochureLeads');
+const notificationsRoutes = require('./routes/notifications');
+const chatRoutes = require('./routes/chat');
+const oversightRoutes = require('./routes/oversight');
+const meetingsRoutes = require('./routes/meetings');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/portals', portalsRoutes);         // ⚠️ Must be before /api catchall — webhook routes are public
+app.use('/api/notifications', notificationsRoutes); // ⚠️ Must be before /api catchall
+app.use('/api/email-own', require('./routes/email-own')); // ⚠️ Must be before /api catchall — /welcome + /subscribe are public
+// Public inbound lead webhook (no auth) — extracted from leadActivityRoutes to avoid wildcard /:contactId interference
+app.post('/api/leads/inbound', require('./routes/inbound-lead'));
 app.use('/api/leads', leadsRoutes);
 app.use('/api/contacts', contactsRoutes);
 app.use('/api/properties', propertiesRoutes);
@@ -136,12 +322,36 @@ app.use('/api/developers', developersRoutes);
 app.use('/api/communities', communitiesRoutes);
 app.use('/api/sale-listings', saleListingsRoutes);
 app.use('/api/rent-listings', rentListingsRoutes);
-app.use('/api/portals', portalsRoutes);
-app.use('/api/lead-activity', leadActivityRoutes);
+app.use('/api/lead-activity', leadActivityRoutes); // activity log (authenticated)
 app.use('/api/social', socialRoutes);
 app.use('/api/hr', hrRoutes);
 app.use('/api/pixxi', pixxiRoutes);
-app.use('/api', leadActivityRoutes); // for /api/leads/inbound webhook
+app.use('/api/complaints', complaintsRoutes);
+app.use('/api/documents', documentsRoutes);
+app.use('/api/brochure-leads', brochureLeadsRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api/meetings', meetingsRoutes);
+app.use('/api/oversight', oversightRoutes);
+
+// Internal: WhatsApp notification queue (no auth token — uses secret header)
+const WA_SECRET = process.env.WA_QUEUE_SECRET || 'astra-wa-queue-2026';
+app.get('/api/internal/whatsapp-queue', async (req, res) => {
+  if (req.headers['x-queue-secret'] !== WA_SECRET) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { query: q } = require('./config/database-sqlite');
+    const result = await q(`SELECT * FROM whatsapp_queue WHERE status = 'pending' ORDER BY created_at ASC LIMIT 20`, []);
+    res.json({ notifications: result.rows });
+  } catch (e) { res.status(500).json({ error: 'Failed' }); }
+});
+app.post('/api/internal/whatsapp-queue/:id/sent', async (req, res) => {
+  if (req.headers['x-queue-secret'] !== WA_SECRET) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { query: q } = require('./config/database-sqlite');
+    await q(`UPDATE whatsapp_queue SET status = 'sent', sent_at = datetime('now') WHERE id = ?`, [req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Failed' }); }
+});
+// (portals + notifications registered above before /api catchall)
 
 // Lead Pool Stats endpoint (direct)
 app.get('/api/lead-pool/stats', require('./middleware/auth').authenticateToken, async (req, res) => {

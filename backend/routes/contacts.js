@@ -437,6 +437,85 @@ router.put('/:id/assign', async (req, res) => {
 });
 
 /**
+ * PATCH /api/contacts/:id/pool
+ * Toggle a contact in/out of the Lead Pool
+ * Body: { in_pool: true|false }  — if omitted, flips current value
+ */
+router.patch('/:id/pool', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { in_pool } = req.body;
+
+    // Get current value if not explicitly provided
+    let newValue;
+    if (typeof in_pool === 'boolean') {
+      newValue = in_pool ? 1 : 0;
+    } else {
+      const current = await query(`SELECT lead_pool FROM contacts WHERE id = $1`, [id]);
+      if (current.rows.length === 0) return res.status(404).json({ error: 'Contact not found' });
+      newValue = current.rows[0].lead_pool ? 0 : 1; // toggle
+    }
+
+    const result = await query(`
+      UPDATE contacts SET lead_pool = $1, updated_at = datetime('now') WHERE id = $2 RETURNING *
+    `, [newValue, id]);
+
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Contact not found' });
+    res.json({ success: true, in_pool: newValue === 1, contact: result.rows[0] });
+  } catch (error) {
+    console.error('Error toggling pool:', error);
+    res.status(500).json({ error: 'Failed to update lead pool status' });
+  }
+});
+
+/**
+ * POST /api/contacts/:id/convert-to-lead
+ * Convert a lead pool contact into an active pipeline lead
+ * - Creates a leads row if one doesn't already exist
+ * - Sets contact.lead_pool = 0
+ */
+router.post('/:id/convert-to-lead', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get the contact
+    const contactResult = await query(`SELECT * FROM contacts WHERE id = $1`, [id]);
+    if (contactResult.rows.length === 0) return res.status(404).json({ error: 'Contact not found' });
+    const contact = contactResult.rows[0];
+
+    // Check if a lead already exists for this contact
+    const existingLead = await query(`SELECT id FROM leads WHERE contact_id = $1 LIMIT 1`, [id]);
+    let leadId;
+
+    if (existingLead.rows.length > 0) {
+      leadId = existingLead.rows[0].id;
+    } else {
+      // Create new lead record
+      const newLead = await query(`
+        INSERT INTO leads (contact_id, status, priority, pipeline_stage, lead_type, source, notes, created_at, updated_at)
+        VALUES ($1, 'not_contacted', 'medium', 'new_lead', $2, $3, $4, datetime('now'), datetime('now'))
+      `, [
+        id,
+        contact.type || 'buyer',
+        contact.source || 'lead_pool',
+        contact.notes || '',
+      ]);
+      // Get the new lead id
+      const newLeadRow = await query(`SELECT id FROM leads WHERE contact_id = $1 ORDER BY created_at DESC LIMIT 1`, [id]);
+      leadId = newLeadRow.rows[0]?.id;
+    }
+
+    // Remove from lead pool
+    await query(`UPDATE contacts SET lead_pool = 0, updated_at = datetime('now') WHERE id = $1`, [id]);
+
+    res.json({ success: true, lead_id: leadId, message: 'Contact converted to active lead' });
+  } catch (error) {
+    console.error('Error converting contact to lead:', error);
+    res.status(500).json({ error: 'Failed to convert to lead' });
+  }
+});
+
+/**
  * GET /api/lead-pool/stats
  * Lead Pool statistics by status and source
  */

@@ -25,6 +25,7 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 /* Sidebar */
@@ -113,4 +114,208 @@ input:focus, select:focus, textarea:focus {
   ring: 2px;
   ring-color: #C9A96E;
   border-color: #C9A96E;
+}
+
+/* ─── MOBILE RESPONSIVE ─── */
+
+/* Table containers scroll on mobile — target only divs that contain tables */
+@media (max-width: 1024px) {
+  div:has(> table) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+
+/* All tables scroll on mobile */
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Page padding — tighter on mobile */
+.page-pad {
+  padding: 1rem;
+}
+@media (min-width: 1024px) {
+  .page-pad {
+    padding: 1.5rem 2rem;
+  }
+}
+
+/* Mobile modal — full screen */
+@media (max-width: 768px) {
+  [role="dialog"], .modal-box {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    border-radius: 16px 16px 0 0 !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+  }
+}
+
+/* Touch targets — minimum 44px on mobile */
+@media (max-width: 768px) {
+  button, a, [role="button"] {
+    min-height: 36px;
+  }
+}
+
+/* Tab bar — horizontal scroll on mobile */
+.tab-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.tab-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Stat grid — 2 cols on mobile, 4 on desktop */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+@media (min-width: 1024px) {
+  .stat-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+}
+
+/* Form grid — 1 col on mobile, 2 on desktop */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+@media (min-width: 640px) {
+  .form-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ─── MOBILE RESPONSIVE GLOBAL FIXES ─── */
+
+/* All tables scroll horizontally on mobile */
+@media (max-width: 1023px) {
+  .overflow-x-auto, table {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Modals: full-width on mobile */
+  .modal-container {
+    width: 100% !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    border-radius: 1rem 1rem 0 0 !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    max-height: 92vh !important;
+    overflow-y: auto !important;
+  }
+
+  .modal-overlay {
+    align-items: flex-end !important;
+  }
+
+  /* Page padding on mobile */
+  .page-content {
+    padding: 1rem !important;
+  }
+
+  /* Stat cards — always 2 cols on mobile */
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.75rem !important;
+  }
+
+  /* Hide less important table columns on mobile */
+  .hide-mobile {
+    display: none !important;
+  }
+
+  /* Full-width buttons on mobile forms */
+  .mobile-full {
+    width: 100% !important;
+  }
+
+  /* Tab bars always scroll */
+  .tab-scroll {
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+  }
+}
+
+/* Table wrapper — always add this around <table> elements */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Grid: 1 col mobile → 2 col tablet → 3+ desktop */
+.responsive-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+@media (min-width: 640px) {
+  .responsive-grid-3 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 1024px) {
+  .responsive-grid-3 { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Responsive 4-col grid */
+.responsive-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+@media (min-width: 1024px) {
+  .responsive-grid-4 { grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+}
+
+/* ─── AUTO TABLE SCROLL — applies to ALL pages ─── */
+@media (max-width: 1023px) {
+  /* Any table inside main content auto-scrolls */
+  .flex-1 table,
+  main table {
+    min-width: 600px;
+  }
+  .flex-1 .rounded-xl:has(table),
+  .flex-1 div:has(> table) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Dashboard stat cards */
+  .grid.grid-cols-4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .grid.grid-cols-3 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Reduce heading sizes on mobile */
+  h1.text-2xl { font-size: 1.25rem !important; }
+  h1.text-3xl { font-size: 1.5rem !important; }
+
+  /* Action bars stack on mobile */
+  .action-bar {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .action-bar > * {
+    width: 100%;
+  }
 }

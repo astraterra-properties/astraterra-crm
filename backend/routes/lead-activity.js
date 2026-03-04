@@ -55,6 +55,34 @@ router.post('/leads/inbound', async (req, res) => {
       VALUES ($1, $2, $3, 'inbound_lead', $4, $5)
     `, [contact.id, lead.rows[0].id, channel, `New inbound lead from ${source || channel}`, JSON.stringify(req.body)]);
 
+    const isWebsiteLead = channel === 'website' || source === 'Newsletter Signup' || source === 'Contact Form'
+        || source === 'Valuation Tool' || source === 'List Property Form'
+        || source === 'Rent Enquiry' || source === 'AstraEstimate';
+
+    if (isWebsiteLead) {
+      // Increment website portal counter
+      query(`
+        UPDATE portal_integrations
+        SET leads_synced = leads_synced + 1,
+            last_sync = datetime('now'),
+            status = 'connected',
+            updated_at = datetime('now')
+        WHERE LOWER(portal_name) = 'website'
+      `).catch(() => {});
+
+      // Create notification for the new website lead
+      const displayName = name || email || phone || 'Unknown';
+      const sourceLabel = source || channel || 'Website';
+      query(`
+        INSERT INTO notifications (type, icon, title, body, link, meta, is_read)
+        VALUES ('lead', '🌐', $1, $2, '/pipeline', $3, 0)
+      `, [
+        `New lead from ${sourceLabel}`,
+        `${displayName} just signed up via your website${message ? ` — "${message.substring(0, 80)}..."` : ''}`,
+        JSON.stringify({ contact_id: contact.id, lead_id: lead.rows[0].id, source: sourceLabel })
+      ]).catch(() => {});
+    }
+
     res.status(201).json({
       success: true,
       contact_id: contact.id,

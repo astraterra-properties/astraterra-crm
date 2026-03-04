@@ -8,7 +8,6 @@ import {
   Users,
   Contact,
   Building2,
-  Handshake,
   Calendar,
   CheckSquare,
   BarChart3,
@@ -19,6 +18,8 @@ import {
   Menu,
   ChevronRight,
   MessageCircle,
+  MessageSquare,
+  Video,
   MapPin,
   Home,
   Key,
@@ -28,8 +29,12 @@ import {
   Mail,
   Share2,
   Users2,
+  UserCircle,
   Calculator,
-  RefreshCw,
+  AlertCircle,
+  FileText,
+  FolderOpen,
+  Eye,
 } from 'lucide-react';
 
 interface SearchResult {
@@ -42,95 +47,142 @@ interface SearchResult {
 }
 
 // Role levels matching backend
-const ROLE_LEVELS: Record<string, number> = { owner: 4, admin: 3, marketing: 2, agent: 1 };
+// owner(4) > admin(3) > finance(2) > agent(1)
+const ROLE_LEVELS: Record<string, number> = { owner: 4, admin: 3, finance: 2, agent: 1 };
 
 function hasMinRole(userRole: string, minRole: string): boolean {
   return (ROLE_LEVELS[userRole] ?? 0) >= (ROLE_LEVELS[minRole] ?? 99);
 }
 
-// All menu groups with minimum role requirements
+// All menu groups — minRole controls visibility per role
 const allMenuGroups = [
   {
     label: 'Main',
     minRole: 'agent',
     items: [
-      { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, minRole: 'agent' },
-      { name: 'Leads', path: '/leads', icon: Users, minRole: 'agent' },
-      { name: 'Pipeline', path: '/pipeline', icon: KanbanSquare, minRole: 'agent' },
-      { name: 'Contacts', path: '/contacts', icon: Contact, minRole: 'agent' },
-      { name: 'Deals', path: '/deals', icon: Handshake, minRole: 'agent' },
-      { name: 'Viewings', path: '/viewings', icon: Calendar, minRole: 'agent' },
-      { name: 'Tasks', path: '/tasks', icon: CheckSquare, minRole: 'agent' },
+      { name: 'Dashboard',  path: '/dashboard', icon: LayoutDashboard, minRole: 'agent' },
+      { name: 'Pipeline',   path: '/pipeline',  icon: KanbanSquare,    minRole: 'agent' },
+      { name: 'Lead Pool',  path: '/leads',     icon: Users,           minRole: 'agent' },
+      { name: 'Contacts',   path: '/contacts',  icon: Contact,         minRole: 'agent' },
+      { name: 'Viewings',   path: '/viewings',  icon: Calendar,        minRole: 'agent' },
+      { name: 'Tasks',      path: '/tasks',     icon: CheckSquare,     minRole: 'agent' },
+    ]
+  },
+  {
+    // Operations — visible to ALL staff (agents, finance, admin, owner)
+    label: 'Operations',
+    minRole: 'agent',
+    items: [
+      { name: 'Team',       path: '/team',       icon: UserCircle,  minRole: 'agent' },
+      { name: 'Chat',       path: '/chat',       icon: MessageSquare, minRole: 'agent' },
+      { name: 'Meetings',   path: '/meetings',   icon: Video,       minRole: 'agent' },
+      { name: 'Complaints', path: '/complaints', icon: AlertCircle, minRole: 'agent' },
     ]
   },
   {
     label: 'Properties',
     minRole: 'agent',
     items: [
-      { name: 'Off-Plan Projects', path: '/offplan', icon: Building, minRole: 'agent' },
-      { name: 'Sale Listings', path: '/sale-listings', icon: Home, minRole: 'agent' },
-      { name: 'Rent Listings', path: '/rent-listings', icon: Key, minRole: 'agent' },
-      { name: 'Developers', path: '/developers', icon: Building2, minRole: 'agent' },
-      { name: 'Areas & Communities', path: '/communities', icon: MapPin, minRole: 'agent' },
+      { name: 'Off-Plan Projects',    path: '/offplan',        icon: Building,  minRole: 'agent' },
+      { name: 'Sale Listings',        path: '/sale-listings',  icon: Home,      minRole: 'agent' },
+      { name: 'Rent Listings',        path: '/rent-listings',  icon: Key,       minRole: 'agent' },
+      { name: 'Developers',           path: '/developers',     icon: Building2, minRole: 'agent' },
+      { name: 'Areas & Communities',  path: '/communities',    icon: MapPin,    minRole: 'agent' },
     ]
   },
   {
     label: 'Marketing',
-    minRole: 'marketing',
+    minRole: 'admin',
     items: [
-      { name: 'Email Marketing', path: '/email-marketing', icon: Mail, minRole: 'marketing' },
-      { name: 'Social Media', path: '/social-media', icon: Share2, minRole: 'marketing' },
+      { name: 'Email Marketing', path: '/email-marketing', icon: Mail,   minRole: 'admin' },
+      { name: 'Social Media',    path: '/social-media',    icon: Share2, minRole: 'admin' },
     ]
   },
   {
     label: 'Integrations',
-    minRole: 'marketing',
+    minRole: 'admin',
     items: [
-      { name: 'Portal Integrations', path: '/portals', icon: Globe, minRole: 'marketing' },
-      { name: 'Pixxi Sync', path: '/pixxi-sync', icon: RefreshCw, minRole: 'marketing' },
+      { name: 'Portal Integrations', path: '/portals', icon: Globe, minRole: 'admin' },
+    ]
+  },
+  {
+    label: 'Content Manager',
+    minRole: 'admin',
+    items: [
+      { name: 'Blog Posts',        path: '/content/blogs',   icon: FileText, minRole: 'admin' },
+      { name: 'Off-Plan Projects', path: '/content/offplan', icon: Building, minRole: 'admin' },
+    ]
+  },
+  {
+    label: 'Documents',
+    minRole: 'admin',
+    items: [
+      { name: 'Document Manager', path: '/documents', icon: FolderOpen, minRole: 'admin' },
     ]
   },
   {
     label: 'Analytics',
     minRole: 'agent',
     items: [
-      { name: 'Reports', path: '/reports', icon: BarChart3, minRole: 'admin' },
-      { name: 'Settings', path: '/settings', icon: Settings, minRole: 'agent' },
+      { name: 'Reports',           path: '/reports',    icon: BarChart3, minRole: 'finance' },
+      { name: 'Agent Oversight',   path: '/oversight',  icon: Eye,       minRole: 'admin'   },
+      { name: 'Settings',          path: '/settings',   icon: Settings,  minRole: 'agent'   },
     ]
   },
   {
-    label: 'Operations',
-    minRole: 'admin',
+    // Administration — finance+ for accounting, admin+ for HR
+    label: 'Administration',
+    minRole: 'finance',
     items: [
-      { name: 'HR Management', path: '/hr', icon: Users2, minRole: 'admin' },
-      { name: 'Accounting', path: '/accounting', icon: Calculator, minRole: 'admin' },
+      { name: 'HR Management', path: '/hr',         icon: Users2,     minRole: 'admin'   },
+      { name: 'Accounting',    path: '/accounting', icon: Calculator, minRole: 'finance' },
     ]
   },
 ];
 
-// Marketing role sees ONLY these paths
-const MARKETING_ONLY_PATHS = new Set(['/dashboard', '/email-marketing', '/social-media', '/portals', '/pixxi-sync']);
+// Finance role — all allowed paths
+const FINANCE_PATHS = new Set(['/dashboard', '/pipeline', '/leads', '/contacts', '/accounting', '/hr', '/reports', '/settings', '/team', '/chat', '/meetings', '/complaints', '/documents']);
 
 function getFilteredMenuGroups(userRole: string) {
-  if (userRole === 'marketing') {
-    // Marketing gets a clean focused sidebar
+  // Finance: curated sidebar — leads/pipeline + operations + accounting/HR/reports
+  if (userRole === 'finance') {
     return [
       {
         label: 'Main',
-        items: [{ name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard }],
-      },
-      {
-        label: 'Marketing',
         items: [
-          { name: 'Email Marketing', path: '/email-marketing', icon: Mail },
-          { name: 'Social Media', path: '/social-media', icon: Share2 },
+          { name: 'Dashboard',  path: '/dashboard', icon: LayoutDashboard },
+          { name: 'Pipeline',   path: '/pipeline',  icon: KanbanSquare    },
+          { name: 'Lead Pool',  path: '/leads',     icon: Users           },
+          { name: 'Contacts',   path: '/contacts',  icon: Contact         },
         ],
       },
       {
-        label: 'Integrations',
+        label: 'Operations',
         items: [
-          { name: 'Portal Integrations', path: '/portals', icon: Globe },
-          { name: 'Pixxi Sync', path: '/pixxi-sync', icon: RefreshCw },
+          { name: 'Team',       path: '/team',       icon: UserCircle    },
+          { name: 'Chat',       path: '/chat',       icon: MessageSquare },
+          { name: 'Meetings',   path: '/meetings',   icon: Video         },
+          { name: 'Complaints', path: '/complaints', icon: AlertCircle   },
+        ],
+      },
+      {
+        label: 'Documents',
+        items: [
+          { name: 'My Documents', path: '/documents', icon: FolderOpen },
+        ],
+      },
+      {
+        label: 'Analytics',
+        items: [
+          { name: 'Reports',  path: '/reports',  icon: BarChart3 },
+          { name: 'Settings', path: '/settings', icon: Settings  },
+        ],
+      },
+      {
+        label: 'Administration',
+        items: [
+          { name: 'HR Management', path: '/hr',         icon: Users2     },
+          { name: 'Accounting',    path: '/accounting', icon: Calculator },
         ],
       },
     ];
@@ -155,10 +207,18 @@ const typeColors: Record<string, string> = {
   deal: 'bg-green-100 text-green-700',
 };
 
-export default function Sidebar() {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  // Keep internal state for backward-compat but prefer external props
+  const [mobileOpenInternal, setMobileOpenInternal] = useState(false);
+  const mobileOpen = isOpen || mobileOpenInternal;
+  const closeMobile = () => { onClose?.(); setMobileOpenInternal(false); };
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -174,6 +234,12 @@ export default function Sidebar() {
     const role = localStorage.getItem('userRole') || 'agent';
     setUserRole(role);
   }, []);
+
+  // Close mobile sidebar on route change (e.g. browser back button)
+  useEffect(() => {
+    closeMobile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -215,7 +281,7 @@ export default function Sidebar() {
   const handleResultClick = (result: SearchResult) => {
     setSearchQuery('');
     setShowResults(false);
-    setMobileOpen(false);
+    closeMobile();
     router.push(result.url);
   };
 
@@ -236,18 +302,15 @@ export default function Sidebar() {
   const SidebarContent = () => (
     <div className="flex flex-col h-full" style={{ background: '#131B2B' }}>
       {/* Logo */}
-      <div className="flex flex-col items-center px-4 py-5 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
-        <div className="relative w-36 h-auto mb-1">
-          <Image
-            src="/astraterra-logo.jpg"
-            alt="Astraterra Properties"
-            width={144}
-            height={72}
-            style={{ width: '144px', height: 'auto', borderRadius: '8px', objectFit: 'contain' }}
-            priority
-          />
-        </div>
-        <p className="text-xs leading-tight font-medium" style={{ color: 'rgba(201,169,110,0.8)' }}>Real Estate CRM</p>
+      <div className="flex items-center justify-center px-4 py-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+        <Image
+          src="/astraterra-logo-transparent.png"
+          alt="Astra Terra Properties"
+          width={180}
+          height={80}
+          style={{ width: '170px', height: 'auto', objectFit: 'contain', filter: 'brightness(1.05)' }}
+          priority
+        />
       </div>
 
       {/* Search */}
@@ -322,7 +385,7 @@ export default function Sidebar() {
                 return (
                   <button
                     key={item.path}
-                    onClick={() => { router.push(item.path); setMobileOpen(false); }}
+                    onClick={() => { router.push(item.path); closeMobile(); }}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left group relative"
                     style={{
                       background: isActive ? 'linear-gradient(135deg, #C9A96E, #8A6F2F)' : 'transparent',
@@ -403,28 +466,22 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Mobile toggle button */}
-      <button
-        onClick={() => setMobileOpen(!mobileOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg shadow-lg text-white"
-        style={{ background: '#131B2B' }}
-      >
-        {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-      </button>
-
-      {/* Desktop Sidebar */}
+      {/* ── Desktop Sidebar ── */}
       <aside className="hidden lg:flex flex-col w-64 flex-shrink-0 h-screen sticky top-0" style={{ background: '#131B2B' }}>
         {SidebarContent()}
       </aside>
 
-      {/* Mobile Sidebar */}
+      {/* ── Mobile Sidebar Drawer ── */}
       {mobileOpen && (
         <>
           <div
-            className="lg:hidden fixed inset-0 z-30 bg-black bg-opacity-60"
-            onClick={() => setMobileOpen(false)}
+            className="lg:hidden fixed inset-0 z-40 bg-black bg-opacity-60"
+            onClick={() => closeMobile()}
           />
-          <aside className="lg:hidden fixed inset-y-0 left-0 z-40 w-64 flex flex-col" style={{ background: '#131B2B' }}>
+          <aside
+            className="lg:hidden fixed inset-y-0 left-0 z-50 w-72 flex flex-col shadow-2xl overflow-y-auto"
+            style={{ background: '#131B2B' }}
+          >
             {SidebarContent()}
           </aside>
         </>

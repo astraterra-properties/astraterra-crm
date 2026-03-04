@@ -123,30 +123,6 @@ export default function QuickActions({
           );
         })}
       </div>
-
-      {/* WhatsApp */}
-      <a
-        href="https://wa.me/971585580053"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-3 p-3.5 rounded-xl transition-all group"
-        style={{ background: 'rgba(37,211,102,0.1)', border: '1px solid rgba(37,211,102,0.2)' }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(37,211,102,0.18)';
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(37,211,102,0.1)';
-        }}
-      >
-        <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#25D366' }}>
-          <MessageCircle className="w-4.5 h-4.5 text-white" style={{ width: '18px', height: '18px' }} />
-        </div>
-        <div className="flex-1">
-          <p className="text-xs font-semibold text-white">WhatsApp Business</p>
-          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>+971 58 558 0053</p>
-        </div>
-        <ArrowRight className="w-4 h-4 opacity-40 group-hover:opacity-80 transition-opacity" style={{ color: '#25D366' }} />
-      </a>
     </div>
   );
 }

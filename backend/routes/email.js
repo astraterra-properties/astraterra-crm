@@ -122,7 +122,7 @@ async function sendViaGmail({ to, subject, text, html, replyTo }) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 // GET /api/email/campaigns — Fetch all email campaigns from Brevo
-router.get('/campaigns', auth, requireMinRole('marketing'), async (req, res) => {
+router.get('/campaigns', auth, requireMinRole('admin'), async (req, res) => {
   try {
     const limit = req.query.limit || 20;
     const status = req.query.status || 'sent';
@@ -136,7 +136,7 @@ router.get('/campaigns', auth, requireMinRole('marketing'), async (req, res) => 
 });
 
 // GET /api/email/campaigns/all — Fetch sent + draft campaigns
-router.get('/campaigns/all', auth, requireMinRole('marketing'), async (req, res) => {
+router.get('/campaigns/all', auth, requireMinRole('admin'), async (req, res) => {
   try {
     const [sent, draft] = await Promise.all([
       brevoRequest('GET', '/emailCampaigns?status=sent&limit=20&sort=desc').catch(() => ({ campaigns: [] })),
@@ -153,7 +153,7 @@ router.get('/campaigns/all', auth, requireMinRole('marketing'), async (req, res)
 });
 
 // GET /api/email/templates — Fetch email templates from Brevo
-router.get('/templates', auth, requireMinRole('marketing'), async (req, res) => {
+router.get('/templates', auth, requireMinRole('admin'), async (req, res) => {
   try {
     const data = await brevoRequest('GET', '/smtp/templates?templateStatus=true&limit=50');
     res.json({ success: true, templates: data.templates || [] });
@@ -164,7 +164,7 @@ router.get('/templates', auth, requireMinRole('marketing'), async (req, res) => 
 });
 
 // GET /api/email/lists — Fetch contact lists from Brevo
-router.get('/lists', auth, requireMinRole('marketing'), async (req, res) => {
+router.get('/lists', auth, requireMinRole('admin'), async (req, res) => {
   try {
     const data = await brevoRequest('GET', '/contacts/lists?limit=50');
     res.json({ success: true, lists: data.lists || [] });
@@ -175,7 +175,7 @@ router.get('/lists', auth, requireMinRole('marketing'), async (req, res) => {
 });
 
 // GET /api/email/stats — Aggregate stats from recent campaigns
-router.get('/stats', auth, requireMinRole('marketing'), async (req, res) => {
+router.get('/stats', auth, requireMinRole('admin'), async (req, res) => {
   try {
     const data = await brevoRequest('GET', '/emailCampaigns?status=sent&limit=10&sort=desc');
     const campaigns = data.campaigns || [];
@@ -209,7 +209,7 @@ router.get('/stats', auth, requireMinRole('marketing'), async (req, res) => {
 });
 
 // POST /api/email/campaign/create — Create a campaign in Brevo (draft)
-router.post('/campaign/create', auth, requireMinRole('marketing'), async (req, res) => {
+router.post('/campaign/create', auth, requireMinRole('admin'), async (req, res) => {
   const { name, subject, senderName, senderEmail, listIds, templateId, htmlContent } = req.body;
   if (!name || !subject) {
     return res.status(400).json({ error: 'name and subject are required' });
@@ -234,7 +234,7 @@ router.post('/campaign/create', auth, requireMinRole('marketing'), async (req, r
 });
 
 // POST /api/email/campaign/send — Send a created campaign immediately
-router.post('/campaign/send', auth, requireMinRole('marketing'), async (req, res) => {
+router.post('/campaign/send', auth, requireMinRole('admin'), async (req, res) => {
   const { campaignId } = req.body;
   if (!campaignId) return res.status(400).json({ error: 'campaignId is required' });
   try {
@@ -246,7 +246,7 @@ router.post('/campaign/send', auth, requireMinRole('marketing'), async (req, res
 });
 
 // POST /api/email/campaign/schedule — Schedule a campaign
-router.post('/campaign/schedule', auth, requireMinRole('marketing'), async (req, res) => {
+router.post('/campaign/schedule', auth, requireMinRole('admin'), async (req, res) => {
   const { campaignId, scheduledAt } = req.body;
   if (!campaignId || !scheduledAt) return res.status(400).json({ error: 'campaignId and scheduledAt required' });
   try {
@@ -258,7 +258,7 @@ router.post('/campaign/schedule', auth, requireMinRole('marketing'), async (req,
 });
 
 // POST /api/email/campaign/send-full — Create + send in one step
-router.post('/campaign/send-full', auth, requireMinRole('marketing'), async (req, res) => {
+router.post('/campaign/send-full', auth, requireMinRole('admin'), async (req, res) => {
   const { name, subject, senderName, senderEmail, listIds, templateId, htmlContent, scheduledAt } = req.body;
   if (!name || !subject) {
     return res.status(400).json({ error: 'name and subject are required' });
@@ -293,7 +293,7 @@ router.post('/campaign/send-full', auth, requireMinRole('marketing'), async (req
 });
 
 // POST /api/email/transactional — Send transactional email to a single contact
-router.post('/transactional', auth, requireMinRole('marketing'), async (req, res) => {
+router.post('/transactional', auth, requireMinRole('admin'), async (req, res) => {
   const { to, toName, subject, htmlContent, templateId, params } = req.body;
   if (!to || !subject) return res.status(400).json({ error: 'to and subject are required' });
   try {
@@ -320,7 +320,7 @@ router.post('/transactional', auth, requireMinRole('marketing'), async (req, res
 // ═══════════════════════════════════════════════════════════════════════════
 
 // POST /api/email/send — Send an email via Gmail SMTP
-router.post('/send', auth, requireMinRole('marketing'), async (req, res) => {
+router.post('/send', auth, requireMinRole('admin'), async (req, res) => {
   const { to, subject, body, html, replyTo } = req.body;
 
   if (!to || !subject || (!body && !html)) {
@@ -344,7 +344,7 @@ router.post('/send', auth, requireMinRole('marketing'), async (req, res) => {
 });
 
 // POST /api/email/send-template — Send a templated email
-router.post('/send-template', auth, requireMinRole('marketing'), async (req, res) => {
+router.post('/send-template', auth, requireMinRole('admin'), async (req, res) => {
   const { to, template, data } = req.body;
 
   const templates = {
@@ -426,7 +426,7 @@ router.post('/send-template', auth, requireMinRole('marketing'), async (req, res
 });
 
 // GET /api/email/test — Test Gmail API connection
-router.get('/test', auth, requireMinRole('marketing'), async (req, res) => {
+router.get('/test', auth, requireMinRole('admin'), async (req, res) => {
   try {
     // Verify by fetching Gmail profile — confirms OAuth2 is working
     const profile = await gmailApi.users.getProfile({ userId: 'me' });
@@ -476,7 +476,7 @@ function extractBody(payload) {
 }
 
 // GET /api/email/inbox/sync — Read unread Gmail messages and add senders as leads
-router.get('/inbox/sync', auth, requireMinRole('marketing'), async (req, res) => {
+router.get('/inbox/sync', auth, requireMinRole('admin'), async (req, res) => {
   try {
     const maxResults = parseInt(req.query.limit) || 20;
 
@@ -589,7 +589,7 @@ router.get('/inbox/sync', auth, requireMinRole('marketing'), async (req, res) =>
 });
 
 // GET /api/email/inbox/preview — Preview unread emails without adding leads
-router.get('/inbox/preview', auth, requireMinRole('marketing'), async (req, res) => {
+router.get('/inbox/preview', auth, requireMinRole('admin'), async (req, res) => {
   try {
     const listRes = await gmailApi.users.messages.list({
       userId: 'me',

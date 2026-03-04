@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0d4f3c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TerrAI">
+<title>TerrAI — AI Landscape Designer</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --emerald: #0d4f3c;
+    --emerald-light: #1a7a5e;
+    --gold: #C9A96E;
+    --gold-light: #e8c98a;
+    --bg: #080f1d;
+    --bg2: #0d1a2e;
+    --bg3: #112238;
+    --text: #f0e8d8;
+    --text-muted: #8a9bb0;
+    --border: rgba(201, 169, 110, 0.2);
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Montserrat', sans-serif; overflow-x: hidden; }
+  
+  /* ── STEP SCREENS ────────────────────────────────────────────────── */
+  .screen { display: none; min-height: 100vh; }
+  .screen.active { display: block; }
+  
+  /* ── TYPOGRAPHY ──────────────────────────────────────────────────── */
+  h1,h2,h3,h4 { font-family: 'Playfair Display', serif; }
+  
+  /* ── HERO ────────────────────────────────────────────────────────── */
+  .hero { 
+    background: linear-gradient(160deg, #0d2b1e 0%, #080f1d 60%);
+    padding: 48px 24px 32px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -80px; right: -80px;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(13,79,60,0.4) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -1px;
+    margin-bottom: 4px;
+  }
+  .logo span { color: var(--gold); }
+  .logo-emoji { font-size: 40px; margin-right: 6px; }
+  .tagline {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    margin-top: 8px;
+  }
+  .badge {
+    display: inline-block;
+    background: rgba(201,169,110,0.15);
+    border: 1px solid rgba(201,169,110,0.3);
+    color: var(--gold);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 12px;
+  }
+  
+  /* ── MAIN CONTENT ────────────────────────────────────────────────── */
+  .content { padding: 24px 16px 100px; max-width: 600px; margin: 0 auto; }
+  
+  /* ── SECTION LABEL ───────────────────────────────────────────────── */
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 12px;
+    margin-top: 28px;
+    display: block;
+  }
+  
+  /* ── UPLOAD BUTTONS ──────────────────────────────────────────────── */
+  .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .upload-btn-full { grid-column: 1 / -1; }
+  .btn-upload {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: linear-gradient(135deg, var(--emerald) 0%, #0f6b50 100%);
+    border: none;
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 18px 20px;
+    min-height: 56px;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn-upload:active { transform: scale(0.97); opacity: 0.9; }
+  .btn-upload.secondary {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+  }
+  .btn-upload .emoji { font-size: 22px; }
+  
+  /* ── PHOTO GRID ──────────────────────────────────────────────────── */
+  .photo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .photo-thumb {
+    aspect-ratio: 1;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+  }
+  .photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .photo-thumb .remove-btn {
+    position: absolute;
+    top: 4px; right: 4px;
+    background: rgba(0,0,0,0.7);
+    border: none;
+    border-radius: 50%;
+    width: 24px; height: 24px;
+    display: flex; align-items: center; justify-content: center;
+    color: white;
+    font-size: 14px;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .photo-count {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+    margin-top: 8px;
+  }
+  .photo-count strong { color: var(--gold); }
+  
+  /* ── PILLS ───────────────────────────────────────────────────────── */
+  .pill-scroll { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .pill-scroll::-webkit-scrollbar { display: none; }
+  .pill {
+    flex-shrink: 0;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 40px;
+  }
+  .pill:hover { border-color: var(--gold); color: var(--gold); }
+  .pill.active { background: var(--emerald); border-color: var(--emerald-light); color: var(--text); font-weight: 600; }
+  
+  /* ── SIZE INPUT ──────────────────────────────────────────────────── */
+  .size-input-wrap { position: relative; }
+  .size-input {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 16px;
+    padding: 16px 20px;
+    outline: none;
+    min-height: 56px;
+    transition: border-color 0.2s;
+  }
+  .size-input:focus { border-color: var(--gold); }
+  .size-input::placeholder { color: var(--text-muted); }
+  .size-unit {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 14px;
+    pointer-events: none;
+  }
+  
+  /* ── CTA BUTTON ──────────────────────────────────────────────────── */
+  .btn-cta {
+    width: 100%;
+    background: linear-gradient(135deg, var(--gold) 0%, #b8924a 100%);
+    border: none;
+    border-radius: var(--radius);
+    color: #080f1d;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    padding: 20px;
+    min-height: 60px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.3px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn-cta:active { transform: scale(0.98); }
+  .btn-cta:disabled { opacity: 0.5; cursor: not-allowed; }
+  
+  /* ── FIXED BOTTOM BAR ────────────────────────────────────────────── */
+  .bottom-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, var(--bg) 30%);
+    padding: 16px 16px 24px;
+    z-index: 100;
+  }
+  
+  /* ═══════════════════════════════════════════════════════════════════ */
+  /* STEP 2 — ANALYSING                                                */
+  /* ═══════════════════════════════════════════════════════════════════ */
+  #screen-loading {
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px 24px;
+    text-align: center;
+  }
+  .loading-logo { 
+    font-family: 'Playfair Display', serif;
+    font-size: 42px;
+    color: var(--text);
+    margin-bottom: 8px;
+    animation: pulse 2s infinite;
+  }
+  .loading-logo span { color: var(--gold); }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+  .loading-tagline {
+    color: var(--text-muted);
+    font-size: 14px;
+    margin-bottom: 48px;
+    line-height: 1.6;
+    max-width: 320px;
+  }
+  .progress-bar-wrap {
+    width: 100%;
+    max-width: 360px;
+    background: var(--bg3);
+    border-radius: 8px;
+    height: 6px;
+    overflow: hidden;
+    margin-bottom: 32px;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--emerald), var(--gold));
+    border-radius: 8px;
+    width: 0%;
+    transition: width 0.5s ease;
+  }
+  .progress-steps { width: 100%; max-width: 360px; }
+  .progress-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    opacity: 0.3;
+    transition: opacity 0.4s;
+  }
+  .progress-step.active { opacity: 1; }
+  .progress-step.done { opacity: 0.7; }
+  .step-emoji { font-size: 20px; }
+  .step-text { font-size: 14px; color: var(--text); text-align: left; flex: 1; }
+  .step-check { color: var(--gold); font-size: 16px; opacity: 0; transition: opacity 0.4s; }
+  .progress-step.done .step-check { opacity: 1; }
+  
+  /* ═══════════════════════════════════════════════════════════════════ */
+  /* STEP 3 — RESULTS                                                  */
+  /* ═══════════════════════════════════════════════════════════════════ */
+  #screen-results .result-hero {
+    background: linear-gradient(160deg, #0d2b1e 0%, #080f1d 60%);
+    padding: 32px 20px 24px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .result-logo { font-family: 'Playfair Display', serif; font-size: 36px; }
+  .result-logo span { color: var(--gold); }
+  .result-subtitle { color: var(--text-muted); font-size: 13px; margin-top: 6px; }
+  
+  .results-content { padding: 0 16px 120px; max-width: 700px; margin: 0 auto; }
+  
+  .section-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-top: 20px;
+  }
+  .section-card h3 {
+    font-family: 'Playfair Display', serif;
+    color: var(--gold);
+    font-size: 18px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-card p { line-height: 1.7; color: var(--text); font-size: 14px; }
+  
+  /* ── RENDERS GRID ────────────────────────────────────────────────── */
+  .renders-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding: 0 4px;
+  }
+  .renders-section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    color: var(--text);
+  }
+  .renders-count-badge {
+    background: rgba(201,169,110,0.15);
+    border: 1px solid rgba(201,169,110,0.3);
+    color: var(--gold);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 20px;
+    letter-spacing: 1px;
+  }
+  .renders-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-bottom: 28px;
+  }
+  .render-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .render-card img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-bottom: 1px solid var(--border);
+  }
+  .render-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+  }
+  .render-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .render-perspective {
+    font-size: 13px;
+    color: var(--text);
+    font-weight: 500;
+    margin-top: 2px;
+  }
+  .render-label-col {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .btn-download {
+    background: rgba(201,169,110,0.15);
+    border: 1px solid rgba(201,169,110,0.3);
+    color: var(--gold);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  
+  /* ── LAYOUT PLAN CARD ────────────────────────────────────────────── */
+  .layout-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 28px;
+  }
+  .layout-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .layout-card-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    color: var(--text);
+  }
+  .layout-badge {
+    background: rgba(201,169,110,0.15);
+    border: 1px solid rgba(201,169,110,0.3);
+    color: var(--gold);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .layout-card img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  /* Plants table */
+  .plants-list { display: flex; flex-direction: column; gap: 10px; }
+  .plant-row {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: start;
+  }
+  .plant-name { font-weight: 600; font-size: 15px; color: var(--text); }
+  .plant-arabic { font-size: 12px; color: var(--gold); margin-top: 2px; }
+  .plant-purpose { font-size: 12px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
+  .plant-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .badge-suitability {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .badge-excellent { background: rgba(13,79,60,0.4); color: #4ade80; border: 1px solid rgba(74,222,128,0.3); }
+  .badge-good { background: rgba(201,169,110,0.15); color: var(--gold); border: 1px solid var(--border); }
+  .plant-cost { font-size: 13px; font-weight: 600; color: var(--text); }
+  .plant-qty { font-size: 11px; color: var(--text-muted); }
+  .total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px;
+    background: rgba(201,169,110,0.08);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-top: 8px;
+  }
+  .total-label { font-weight: 600; font-size: 14px; }
+  .total-value { font-weight: 700; font-size: 16px; color: var(--gold); }
+  
+  /* Materials */
+  .materials-list { display: flex; flex-direction: column; gap: 8px; }
+  .material-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    background: var(--bg3);
+    border-radius: 10px;
+    gap: 12px;
+  }
+  .material-left { flex: 1; }
+  .material-name { font-size: 14px; font-weight: 500; }
+  .material-spec { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .material-right { text-align: right; flex-shrink: 0; }
+  .material-cost { font-size: 14px; font-weight: 600; color: var(--gold); }
+  .material-qty { font-size: 11px; color: var(--text-muted); }
+  
+  /* Irrigation + Lighting */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
+  @media(max-width: 480px) { .two-col { grid-template-columns: 1fr; } }
+  .info-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+  }
+  .info-card h4 { font-family: 'Playfair Display', serif; color: var(--gold); font-size: 16px; margin-bottom: 10px; }
+  .info-card p { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+  .info-card .cost-tag { margin-top: 12px; font-size: 15px; font-weight: 700; color: var(--text); }
+  
+  /* Timeline */
+  .timeline { display: flex; flex-direction: column; gap: 0; }
+  .timeline-item { display: flex; gap: 16px; }
+  .timeline-left { display: flex; flex-direction: column; align-items: center; }
+  .timeline-dot {
+    width: 36px; height: 36px;
+    background: var(--emerald);
+    border: 2px solid var(--gold);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--gold);
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .timeline-line {
+    width: 2px;
+    flex: 1;
+    background: var(--border);
+    margin: 4px 0;
+    min-height: 20px;
+  }
+  .timeline-right { flex: 1; padding-bottom: 20px; }
+  .timeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0 0;
+    cursor: pointer;
+  }
+  .timeline-title { font-weight: 600; font-size: 15px; }
+  .timeline-duration { font-size: 12px; color: var(--gold); }
+  .timeline-tasks {
+    margin-top: 8px;
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .timeline-tasks.open { display: flex; }
+  .task-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+  .task-item::before { content: '→'; color: var(--gold); flex-shrink: 0; }
+  
+  /* Tips */
+  .tips-list { display: flex; flex-direction: column; gap: 8px; }
+  .tip-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    padding: 10px 14px;
+    background: var(--bg3);
+    border-radius: 10px;
+  }
+  .tip-item::before { content: '🌱'; font-size: 16px; flex-shrink: 0; }
+  
+  /* Cost summary */
+  .cost-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  @media(max-width: 380px) { .cost-grid { grid-template-columns: 1fr; } }
+  .cost-box {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 12px;
+    text-align: center;
+  }
+  .cost-box-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .cost-box-value { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 700; color: var(--gold); }
+  .cost-box-unit { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .cost-total-box {
+    background: linear-gradient(135deg, var(--emerald) 0%, #0f6b50 100%);
+    border: 1px solid var(--emerald-light);
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+    margin-top: 16px;
+  }
+  .cost-total-label { font-size: 12px; color: rgba(240,232,216,0.7); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+  .cost-total-value { font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 700; color: var(--gold); }
+  .cost-total-unit { font-size: 13px; color: rgba(240,232,216,0.7); margin-top: 4px; }
+  
+  /* Results bottom bar */
+  .results-bottom {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, var(--bg) 30%);
+    padding: 12px 16px 24px;
+    z-index: 100;
+    display: flex;
+    gap: 10px;
+  }
+  .btn-wa {
+    flex: 1;
+    background: linear-gradient(135deg, #25D366, #128C7E);
+    border: none;
+    border-radius: var(--radius);
+    color: white;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 16px;
+    min-height: 56px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .btn-secondary {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 16px 20px;
+    min-height: 56px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    white-space: nowrap;
+  }
+  
+  /* Error message */
+  .error-banner {
+    background: rgba(239,68,68,0.15);
+    border: 1px solid rgba(239,68,68,0.4);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+    color: #fca5a5;
+    font-size: 14px;
+    display: none;
+  }
+  .error-banner.visible { display: block; }
+  
+  /* Hidden inputs */
+  input[type="file"] { display: none; }
+  
+  /* Sub heading */
+  .sub-heading {
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    margin-top: 18px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  
+  /* Analysis text card */
+  .analysis-text {
+    background: var(--bg3);
+    border-left: 3px solid var(--gold);
+    border-radius: 0 12px 12px 0;
+    padding: 16px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SCREEN 1 — CAPTURE                                                    -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div id="screen-capture" class="screen active">
+  <div class="hero">
+    <div class="badge">UAE-First AI Landscape Designer</div>
+    <div class="logo"><span class="logo-emoji">🌿</span>Terr<span>AI</span></div>
+    <div class="tagline">Upload Photos. Get a Complete Design.</div>
+  </div>
+
+  <div class="content">
+    <div id="error-banner" class="error-banner"></div>
+
+    <!-- Upload buttons -->
+    <span class="section-label">Add Your Property</span>
+    <div class="upload-grid">
+      <button class="btn-upload upload-btn-full" onclick="document.getElementById('cameraInput').click()">
+        <span class="emoji">📸</span> Take Photos
+      </button>
+      <button class="btn-upload secondary" onclick="document.getElementById('galleryInput').click()">
+        <span class="emoji">🖼️</span> Gallery
+      </button>
+      <button class="btn-upload secondary" onclick="document.getElementById('videoInput').click()">
+        <span class="emoji">🎥</span> Video
+      </button>
+    </div>
+    
+    <!-- Hidden inputs -->
+    <input type="file" id="cameraInput" accept="image/*" capture="environment" multiple>
+    <input type="file" id="galleryInput" accept="image/*" multiple>
+    <input type="file" id="videoInput" accept="video/*">
+    
+    <!-- Photo thumbnails -->
+    <div id="photo-grid" class="photo-grid" style="display:none"></div>
+    <div id="photo-count" class="photo-count" style="display:none"></div>
+
+    <!-- Property type -->
+    <span class="section-label">Property Type</span>
+    <div class="pill-scroll" id="propertyType">
+      <div class="pill active" data-value="Villa Garden">🏡 Villa Garden</div>
+      <div class="pill" data-value="Apartment Balcony">🏢 Apartment Balcony</div>
+      <div class="pill" data-value="Townhouse Garden">🏘️ Townhouse Garden</div>
+      <div class="pill" data-value="Penthouse Terrace">🌆 Penthouse Terrace</div>
+      <div class="pill" data-value="Pool Area">🏊 Pool Area</div>
+      <div class="pill" data-value="Commercial">🏗️ Commercial</div>
+      <div class="pill" data-value="Raw Land">🌾 Raw Land</div>
+    </div>
+
+    <!-- Size -->
+    <span class="section-label">Area Size (Optional)</span>
+    <div class="size-input-wrap">
+      <input type="number" id="sizeSqm" class="size-input" placeholder="e.g. 200" inputmode="numeric">
+      <span class="size-unit">sqm</span>
+    </div>
+
+    <!-- Style preference -->
+    <span class="section-label">Design Style</span>
+    <div class="pill-scroll" id="stylePreference">
+      <div class="pill active" data-value="Lush Tropical">🌴 Lush Tropical</div>
+      <div class="pill" data-value="Modern Minimalist">🏙️ Modern Minimalist</div>
+      <div class="pill" data-value="Mediterranean">🫒 Mediterranean</div>
+      <div class="pill" data-value="Desert Zen">🪨 Desert Zen</div>
+      <div class="pill" data-value="English Garden">🌸 English Garden</div>
+      <div class="pill" data-value="Luxury Resort">💎 Luxury Resort</div>
+    </div>
+    
+    <div style="height: 16px"></div>
+  </div>
+
+  <!-- Fixed CTA -->
+  <div class="bottom-bar">
+    <button class="btn-cta" id="analyseBtn" onclick="startAnalysis()">
+      ✨ Generate My Landscape Design
+    </button>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SCREEN 2 — LOADING                                                    -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div id="screen-loading" class="screen">
+  <div class="loading-logo">🌿 Terr<span>AI</span></div>
+  <p class="loading-tagline">Our AI is analysing sun exposure, soil type, and optimal plant placement for UAE climate</p>
+  
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-fill" id="progressFill"></div>
+  </div>
+  
+  <div class="progress-steps">
+    <div class="progress-step" id="step1">
+      <span class="step-emoji">🔍</span>
+      <span class="step-text">Scanning your property...</span>
+      <span class="step-check">✓</span>
+    </div>
+    <div class="progress-step" id="step2">
+      <span class="step-emoji">🧠</span>
+      <span class="step-text">Building design concept...</span>
+      <span class="step-check">✓</span>
+    </div>
+    <div class="progress-step" id="step3">
+      <span class="step-emoji">🎨</span>
+      <span class="step-text" id="step3-text">Generating design renders...</span>
+      <span class="step-check">✓</span>
+    </div>
+    <div class="progress-step" id="step4">
+      <span class="step-emoji">📋</span>
+      <span class="step-text">Preparing your full report...</span>
+      <span class="step-check">✓</span>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SCREEN 3 — RESULTS                                                    -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div id="screen-results" class="screen">
+  <div class="result-hero">
+    <div class="result-logo">🌿 Terr<span>AI</span></div>
+    <div class="result-subtitle">Your Complete Landscape Design Report</div>
+  </div>
+  
+  <div class="results-content">
+
+    <!-- A: RENDERS -->
+    <div id="renders-section" style="margin-bottom: 8px;">
+      <div class="renders-section-header">
+        <div class="renders-section-title" id="renders-section-title">🎨 Design Renders</div>
+        <div class="renders-count-badge" id="renders-count-badge">0 Renders</div>
+      </div>
+      <div id="detected-type-banner" style="display:none;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);border-radius:8px;padding:8px 14px;margin-bottom:10px;font-size:13px;color:#86efac;align-items:center;gap:8px;">
+        <span style="font-size:16px;">🏠</span>
+        <span>Auto-detected: <strong id="detected-type-text"></strong></span>
+        <span style="font-size:11px;opacity:0.7;">(AI identified your property type from the photo)</span>
+      </div>
+      <div class="renders-grid" id="renders-grid"></div>
+    </div>
+
+    <!-- A2: LAYOUT PLAN -->
+    <div class="layout-card" id="layout-card" style="display:none;">
+      <div class="layout-card-header">
+        <div class="layout-card-title">🗺️ Estimated Property Layout Plan</div>
+        <div class="layout-badge">AI Generated</div>
+      </div>
+      <img id="layout-img" src="" alt="Property Layout Plan">
+      <div style="text-align:center; margin-top:12px;">
+        <button class="btn-download" onclick="downloadRender(document.getElementById('layout-img').src, 'layout')">⬇ Download Layout</button>
+      </div>
+    </div>
+
+    <!-- B: DESIGN CONCEPT -->
+    <div class="section-card">
+      <h3>🌿 Design Concept</h3>
+      <p id="r-design-concept" style="white-space: pre-wrap"></p>
+    </div>
+
+    <!-- C: LAYOUT PLAN -->
+    <div class="section-card">
+      <h3>📍 Layout Plan</h3>
+      <p id="r-layout-description" style="white-space: pre-wrap"></p>
+    </div>
+
+    <!-- D: PLANTS -->
+    <div class="section-card">
+      <h3>🌱 Plants List</h3>
+      <div id="r-plants" class="plants-list"></div>
+      <div class="total-row" style="margin-top:12px">
+        <span class="total-label">Total Plants Cost</span>
+        <span class="total-value" id="r-plants-total">–</span>
+      </div>
+    </div>
+
+    <!-- E: MATERIALS -->
+    <div class="section-card">
+      <h3>🪨 Materials</h3>
+      <div class="sub-heading">Hard Materials</div>
+      <div id="r-hard-materials" class="materials-list"></div>
+      <div class="sub-heading">Soft Furnishings</div>
+      <div id="r-soft-furnishings" class="materials-list"></div>
+    </div>
+
+    <!-- F: IRRIGATION & LIGHTING -->
+    <div class="two-col">
+      <div class="info-card" id="r-irrigation-card">
+        <h4>💧 Irrigation</h4>
+        <p id="r-irrigation-type" style="font-weight:600; color:var(--text); margin-bottom:6px"></p>
+        <p id="r-irrigation-desc"></p>
+        <div class="cost-tag" id="r-irrigation-cost"></div>
+      </div>
+      <div class="info-card">
+        <h4>💡 Lighting</h4>
+        <div id="r-lighting" style="display:flex; flex-direction:column; gap:8px"></div>
+      </div>
+    </div>
+
+    <!-- G: INSTALLATION PHASES -->
+    <div class="section-card">
+      <h3>🔨 Installation Phases</h3>
+      <div id="r-phases" class="timeline"></div>
+    </div>
+
+    <!-- H: MAINTENANCE TIPS -->
+    <div class="section-card">
+      <h3>🛠️ Maintenance Tips</h3>
+      <div id="r-tips" class="tips-list"></div>
+    </div>
+
+    <!-- I: COST SUMMARY -->
+    <div class="section-card">
+      <h3>💰 Cost Summary</h3>
+      <div class="cost-grid" id="r-cost-grid"></div>
+      <div class="cost-total-box">
+        <div class="cost-total-label">Total Estimated Investment</div>
+        <div class="cost-total-value" id="r-cost-total">–</div>
+        <div class="cost-total-unit">AED</div>
+      </div>
+    </div>
+
+    <!-- Property Analysis -->
+    <div class="section-card">
+      <h3>🔍 Property Analysis</h3>
+      <div class="analysis-text" id="r-property-analysis"></div>
+    </div>
+
+  </div>
+
+  <!-- Fixed bottom bar -->
+  <div class="results-bottom">
+    <button class="btn-wa" onclick="requestQuote()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      Request Quote
+    </button>
+    <button class="btn-secondary" onclick="shareReport()">📤 Share</button>
+    <button class="btn-secondary" onclick="designAgain()">🔄 Again</button>
+  </div>
+</div>
+
+<script>
+// ── STATE ─────────────────────────────────────────────────────────────────────
+const state = {
+  photos: [],     // {file, dataUrl}
+  video: null,    // File
+  propertyType: 'Villa Garden',
+  style: 'Lush Tropical',
+  sizeSqm: '',
+};
+
+let progressInterval = null;
+
+// ── SCREEN MANAGEMENT ─────────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+// ── PILL SELECTION ────────────────────────────────────────────────────────────
+document.querySelectorAll('#propertyType .pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    document.querySelectorAll('#propertyType .pill').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    state.propertyType = pill.dataset.value;
+  });
+});
+document.querySelectorAll('#stylePreference .pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    document.querySelectorAll('#stylePreference .pill').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    state.style = pill.dataset.value;
+  });
+});
+
+// ── PHOTO INPUT HANDLERS ──────────────────────────────────────────────────────
+document.getElementById('cameraInput').addEventListener('change', handlePhotoFiles);
+document.getElementById('galleryInput').addEventListener('change', handlePhotoFiles);
+document.getElementById('videoInput').addEventListener('change', handleVideoFile);
+
+function handlePhotoFiles(e) {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+  state.video = null; // clear video if photos added
+  
+  const remaining = 6 - state.photos.length;
+  const toAdd = files.slice(0, remaining);
+  
+  toAdd.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      state.photos.push({ file, dataUrl: ev.target.result });
+      renderPhotoGrid();
+    };
+    reader.readAsDataURL(file);
+  });
+  e.target.value = '';
+}
+
+function handleVideoFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  state.video = file;
+  state.photos = [];
+  renderPhotoGrid();
+  e.target.value = '';
+}
+
+function removePhoto(index) {
+  state.photos.splice(index, 1);
+  renderPhotoGrid();
+}
+
+function renderPhotoGrid() {
+  const grid = document.getElementById('photo-grid');
+  const countEl = document.getElementById('photo-count');
+  
+  if (state.video) {
+    grid.style.display = 'none';
+    countEl.style.display = 'block';
+    countEl.innerHTML = `🎥 Video selected: <strong>${state.video.name}</strong> <button onclick="state.video=null;renderPhotoGrid()" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:13px;">✕ Remove</button>`;
+    return;
+  }
+  
+  if (state.photos.length === 0) {
+    grid.style.display = 'none';
+    countEl.style.display = 'none';
+    return;
+  }
+  
+  grid.style.display = 'grid';
+  countEl.style.display = 'block';
+  countEl.innerHTML = `<strong>${state.photos.length}</strong> / 6 photos added`;
+  
+  grid.innerHTML = state.photos.map((p, i) => `
+    <div class="photo-thumb">
+      <img src="${p.dataUrl}" alt="Photo ${i+1}">
+      <button class="remove-btn" onclick="removePhoto(${i})">✕</button>
+    </div>
+  `).join('');
+}
+
+// ── PROGRESS BAR ──────────────────────────────────────────────────────────────
+function startProgressAnimation() {
+  const fill = document.getElementById('progressFill');
+  const steps = [
+    { id: 'step1', start: 0, end: 25, duration: 18000 },
+    { id: 'step2', start: 25, end: 55, duration: 20000 },
+    { id: 'step3', start: 55, end: 80, duration: 30000 },
+    { id: 'step4', start: 80, end: 97, duration: 22000 },
+  ];
+  
+  let currentStep = 0;
+  let stepStart = Date.now();
+  
+  document.getElementById('step1').classList.add('active');
+  
+  progressInterval = setInterval(() => {
+    const step = steps[currentStep];
+    const elapsed = Date.now() - stepStart;
+    const progress = Math.min(elapsed / step.duration, 1);
+    const currentProgress = step.start + (step.end - step.start) * progress;
+    
+    fill.style.width = currentProgress + '%';
+    
+    if (progress >= 1 && currentStep < steps.length - 1) {
+      document.getElementById(step.id).classList.remove('active');
+      document.getElementById(step.id).classList.add('done');
+      currentStep++;
+      stepStart = Date.now();
+      document.getElementById(steps[currentStep].id).classList.add('active');
+    }
+  }, 100);
+}
+
+function stopProgressAnimation(success) {
+  if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
+  const fill = document.getElementById('progressFill');
+  fill.style.transition = 'width 0.8s ease';
+  fill.style.width = success ? '100%' : '0%';
+  
+  if (success) {
+    ['step1','step2','step3','step4'].forEach(id => {
+      document.getElementById(id).classList.remove('active');
+      document.getElementById(id).classList.add('done');
+    });
+  }
+}
+
+function resetProgress() {
+  if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
+  document.getElementById('progressFill').style.width = '0%';
+  document.getElementById('progressFill').style.transition = 'width 0.5s ease';
+  ['step1','step2','step3','step4'].forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.remove('active','done');
+  });
+}
+
+// ── MAIN ANALYSIS FLOW ────────────────────────────────────────────────────────
+async function startAnalysis() {
+  const hasContent = state.photos.length > 0 || state.video;
+  if (!hasContent) {
+    showError('Please add at least 1 photo or a video of your property.');
+    return;
+  }
+  
+  hideError();
+
+  // Update loading text based on input type
+  const step3Text = document.getElementById('step3-text');
+  if (step3Text) {
+    if (state.video) {
+      step3Text.textContent = 'Generating 360° renders (8 views)...';
+    } else {
+      step3Text.textContent = `Generating ${state.photos.length} design render${state.photos.length !== 1 ? 's' : ''}...`;
+    }
+  }
+
+  showScreen('screen-loading');
+  resetProgress();
+  startProgressAnimation();
+  
+  try {
+    const formData = new FormData();
+    formData.append('style', state.style);
+    formData.append('property_type', state.propertyType);
+    if (state.sizeSqm) formData.append('size_sqm', state.sizeSqm);
+    
+    if (state.video) {
+      formData.append('video', state.video);
+    } else {
+      state.photos.forEach(p => formData.append('photos', p.file));
+    }
+    
+    const res = await fetch('/api/landscape-proxy', { method: 'POST', body: formData });
+    const data = await res.json();
+    
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Analysis failed');
+    }
+    
+    stopProgressAnimation(true);
+    await new Promise(r => setTimeout(r, 800)); // brief pause to show 100%
+    
+    renderResults(data);
+    showScreen('screen-results');
+    
+  } catch (err) {
+    stopProgressAnimation(false);
+    showScreen('screen-capture');
+    showError('❌ ' + (err.message || 'Something went wrong. Please try again.'));
+  }
+}
+
+// ── RENDER RESULTS ────────────────────────────────────────────────────────────
+function renderResults(data) {
+  const r = data.report || {};
+  
+  // Renders
+  const grid = document.getElementById('renders-grid');
+  grid.innerHTML = '';
+  const renders = data.renders || [];
+  const is360 = data.is_360;
+  const renderCount = renders.length;
+  
+  // Update section header
+  const titleEl = document.getElementById('renders-section-title');
+  const badgeEl = document.getElementById('renders-count-badge');
+  if (titleEl) titleEl.textContent = is360 ? '🎨 360° Design Renders' : '🎨 Design Renders';
+  if (badgeEl) badgeEl.textContent = renderCount + ' Render' + (renderCount !== 1 ? 's' : '');
+
+  // Show auto-detected property type banner
+  const banner = document.getElementById('detected-type-banner');
+  const detectedTypeText = document.getElementById('detected-type-text');
+  if (data.detected_property_type && banner && detectedTypeText) {
+    detectedTypeText.textContent = data.detected_property_type;
+    banner.style.display = 'flex';
+    // Update active pill to reflect detected type
+    document.querySelectorAll('#propertyType .pill').forEach(pill => {
+      pill.classList.toggle('active', pill.dataset.value === data.detected_property_type);
+    });
+    // Update state so share/download use correct type
+    state.propertyType = data.detected_property_type;
+  } else if (banner) {
+    banner.style.display = 'none';
+  }
+  
+  // Perspective labels — match what backend sends (use index as fallback)
+  const perspectiveLabels360 = ['0° Front', '45° Front-Right', '90° Right Side', '135° Rear-Right', '180° Rear', '225° Rear-Left', '270° Left Side', '315° Front-Left'];
+  const perspectiveLabelsPhoto = {
+    1: ['Full Property View'],
+    2: ['Front View', 'Garden Detail'],
+    3: ['Front Elevation', 'Side Garden', 'Rear Garden'],
+    4: ['Front', 'Right Side', 'Rear Garden', 'Left Side'],
+    5: ['Front', 'Front-Right', 'Right Side', 'Rear Garden', 'Garden Detail'],
+    6: ['Front', 'Front-Right', 'Right Side', 'Rear Garden', 'Left Side', 'Garden Detail'],
+  };
+  
+  renders.forEach((url, i) => {
+    if (!url) return;
+    const perspLabel = is360
+      ? (perspectiveLabels360[i] || `View ${i + 1}`)
+      : ((perspectiveLabelsPhoto[renderCount] || [])[i] || `View ${i + 1}`);
+    
+    const card = document.createElement('div');
+    card.className = 'render-card';
+    card.innerHTML = `
+      <img src="${url}" alt="${perspLabel}" loading="lazy">
+      <div class="render-card-footer">
+        <div class="render-label-col">
+          <span class="render-label">Render ${i + 1} of ${renderCount}</span>
+          <span class="render-perspective">${perspLabel}</span>
+        </div>
+        <button class="btn-download" onclick="downloadRender(this.closest('.render-card').querySelector('img').src, ${i + 1})">⬇ Download</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+  
+  // Design concept
+  // Layout render
+  const layoutCard = document.getElementById('layout-card');
+  const layoutImg = document.getElementById('layout-img');
+  if (data.layout_render && layoutCard && layoutImg) {
+    layoutImg.src = data.layout_render;
+    layoutCard.style.display = 'block';
+  }
+
+  document.getElementById('r-design-concept').textContent = r.design_concept || '–';
+  
+  // Layout
+  document.getElementById('r-layout-description').textContent = r.layout_description || '–';
+  
+  // Plants
+  const plantsEl = document.getElementById('r-plants');
+  plantsEl.innerHTML = '';
+  let plantTotal = 0;
+  (r.plants || []).forEach(p => {
+    plantTotal += (p.cost_aed || 0) * (p.quantity || 1);
+    const badgeClass = p.uae_suitability === 'excellent' ? 'badge-excellent' : 'badge-good';
+    plantsEl.innerHTML += `
+      <div class="plant-row">
+        <div>
+          <div class="plant-name">${p.name || ''}</div>
+          ${p.arabic_name ? `<div class="plant-arabic">${p.arabic_name}</div>` : ''}
+          <div class="plant-purpose">${p.purpose || ''}</div>
+        </div>
+        <div class="plant-meta">
+          <span class="badge-suitability ${badgeClass}">${p.uae_suitability || 'good'}</span>
+          <span class="plant-cost">AED ${fmtNum(p.cost_aed || 0)}</span>
+          <span class="plant-qty">Qty: ${p.quantity || 1}</span>
+        </div>
+      </div>`;
+  });
+  document.getElementById('r-plants-total').textContent = 'AED ' + fmtNum(plantTotal);
+  
+  // Hard materials
+  const hardEl = document.getElementById('r-hard-materials');
+  hardEl.innerHTML = '';
+  (r.hard_materials || []).forEach(m => {
+    hardEl.innerHTML += `
+      <div class="material-row">
+        <div class="material-left">
+          <div class="material-name">${m.item || ''}</div>
+          <div class="material-spec">${m.spec || ''}${m.quantity ? ' · ' + m.quantity + ' ' + (m.unit || '') : ''}</div>
+        </div>
+        <div class="material-right">
+          <div class="material-cost">AED ${fmtNum(m.cost_aed || 0)}</div>
+        </div>
+      </div>`;
+  });
+  
+  // Soft furnishings
+  const softEl = document.getElementById('r-soft-furnishings');
+  softEl.innerHTML = '';
+  (r.soft_furnishings || []).forEach(f => {
+    softEl.innerHTML += `
+      <div class="material-row">
+        <div class="material-left">
+          <div class="material-name">${f.item || ''}</div>
+          <div class="material-spec">${f.spec || ''}${f.quantity ? ' · Qty ' + f.quantity : ''}</div>
+        </div>
+        <div class="material-right">
+          <div class="material-cost">AED ${fmtNum(f.cost_aed || 0)}</div>
+        </div>
+      </div>`;
+  });
+  
+  // Irrigation
+  const irr = r.irrigation || {};
+  document.getElementById('r-irrigation-type').textContent = irr.system_type || '';
+  document.getElementById('r-irrigation-desc').textContent = irr.description || '';
+  document.getElementById('r-irrigation-cost').textContent = irr.cost_aed ? 'AED ' + fmtNum(irr.cost_aed) : '';
+  
+  // Lighting
+  const lightEl = document.getElementById('r-lighting');
+  lightEl.innerHTML = '';
+  (r.lighting || []).forEach(l => {
+    lightEl.innerHTML += `
+      <div style="padding:8px 0; border-bottom: 1px solid var(--border);">
+        <div style="font-size:13px; font-weight:600;">${l.type || ''} <span style="color:var(--text-muted);">×${l.quantity || 1}</span></div>
+        <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">${l.placement || ''}</div>
+        <div style="font-size:13px; color:var(--gold); margin-top:2px;">AED ${fmtNum(l.cost_aed || 0)}</div>
+      </div>`;
+  });
+  
+  // Installation phases
+  const phasesEl = document.getElementById('r-phases');
+  phasesEl.innerHTML = '';
+  const phases = r.installation_phases || [];
+  phases.forEach((phase, idx) => {
+    const isLast = idx === phases.length - 1;
+    const tasks = (phase.tasks || []).map(t => `<div class="task-item">${t}</div>`).join('');
+    phasesEl.innerHTML += `
+      <div class="timeline-item">
+        <div class="timeline-left">
+          <div class="timeline-dot" onclick="togglePhase(${idx})">${phase.phase || idx+1}</div>
+          ${!isLast ? '<div class="timeline-line"></div>' : ''}
+        </div>
+        <div class="timeline-right">
+          <div class="timeline-header" onclick="togglePhase(${idx})">
+            <span class="timeline-title">${phase.title || ''}</span>
+            <span class="timeline-duration">${phase.duration || ''}</span>
+          </div>
+          <div class="timeline-tasks" id="phase-${idx}">${tasks}</div>
+        </div>
+      </div>`;
+  });
+  // Open first phase by default
+  if (phases.length > 0) {
+    const first = document.getElementById('phase-0');
+    if (first) first.classList.add('open');
+  }
+  
+  // Maintenance tips
+  const tipsEl = document.getElementById('r-tips');
+  tipsEl.innerHTML = (r.maintenance_tips || []).map(t => `<div class="tip-item">${t}</div>`).join('');
+  
+  // Cost summary
+  const costs = r.total_cost_aed || {};
+  const costGrid = document.getElementById('r-cost-grid');
+  costGrid.innerHTML = `
+    <div class="cost-box">
+      <div class="cost-box-label">Materials</div>
+      <div class="cost-box-value">${fmtCompact(costs.materials || 0)}</div>
+      <div class="cost-box-unit">AED</div>
+    </div>
+    <div class="cost-box">
+      <div class="cost-box-label">Labour Est.</div>
+      <div class="cost-box-value">${fmtCompact(costs.labour_estimate || 0)}</div>
+      <div class="cost-box-unit">AED</div>
+    </div>
+    <div class="cost-box">
+      <div class="cost-box-label">Total Est.</div>
+      <div class="cost-box-value">${fmtCompact(costs.total || 0)}</div>
+      <div class="cost-box-unit">AED</div>
+    </div>`;
+  document.getElementById('r-cost-total').textContent = fmtNum(costs.total || 0);
+  
+  // Property analysis
+  document.getElementById('r-property-analysis').textContent = r.property_analysis || '';
+  
+  // Store for share
+  window._currentReport = data;
+}
+
+function togglePhase(idx) {
+  const el = document.getElementById('phase-' + idx);
+  if (el) el.classList.toggle('open');
+}
+
+// ── UTILITIES ─────────────────────────────────────────────────────────────────
+function fmtNum(n) {
+  return Number(n).toLocaleString('en-AE');
+}
+function fmtCompact(n) {
+  if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n/1000).toFixed(0) + 'K';
+  return String(n);
+}
+
+function downloadRender(dataUrl, index) {
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = `terrai-design-${index}.png`;
+  a.click();
+}
+
+function requestQuote() {
+  const style = state.style || 'Landscape';
+  const type = state.propertyType || 'Property';
+  const cost = window._currentReport?.report?.total_cost_aed?.total || '';
+  const msg = encodeURIComponent(`Hi, I used TerrAI to design my ${type} (${style} style). I'd like to request a professional quote.${cost ? ' Estimated budget: AED ' + cost.toLocaleString() : ''}`);
+  window.open(`https://wa.me/971585580053?text=${msg}`, '_blank');
+}
+
+async function shareReport() {
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: 'My TerrAI Landscape Design',
+        text: `Check out my AI-generated ${state.style} landscape design for my ${state.propertyType}!`,
+        url: window.location.href,
+      });
+    } catch (e) {}
+  } else {
+    navigator.clipboard?.writeText(window.location.href).then(() => alert('Link copied!')).catch(() => {});
+  }
+}
+
+function designAgain() {
+  state.photos = [];
+  state.video = null;
+  renderPhotoGrid();
+  showScreen('screen-capture');
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-banner');
+  el.textContent = msg;
+  el.classList.add('visible');
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function hideError() {
+  document.getElementById('error-banner').classList.remove('visible');
+}
+
+// Size input
+document.getElementById('sizeSqm').addEventListener('input', e => {
+  state.sizeSqm = e.target.value;
+});
+
+// ── PWA SERVICE WORKER ────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>

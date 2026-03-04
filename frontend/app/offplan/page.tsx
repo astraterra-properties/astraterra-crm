@@ -227,7 +227,7 @@ export default function OffplanPage() {
               </div>
             </div>
             <form onSubmit={handleSave} className="p-6">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="block text-xs font-medium mb-1.5" style={{ color: '#374151' }}>Project Name *</label>
                   <input type="text" required value={current.name || ''} onChange={e => setCurrent({ ...current, name: e.target.value })}

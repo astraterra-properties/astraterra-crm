@@ -8,6 +8,7 @@ interface Task {
   id: number;
   title: string;
   description: string;
+  type: string;
   priority: string;
   status: string;
   due_date: string;
@@ -21,6 +22,7 @@ interface Task {
 
 const TASK_STATUSES = [
   { id: 'todo', name: 'To Do', dot: '#9CA3AF' },
+  { id: 'pending', name: 'Pending', dot: '#F59E0B' },
   { id: 'in_progress', name: 'In Progress', dot: '#3B82F6' },
   { id: 'review', name: 'Review', dot: '#8B5CF6' },
   { id: 'done', name: 'Done', dot: '#10B981' },
@@ -41,6 +43,8 @@ export default function TasksPage() {
   const [currentTask, setCurrentTask] = useState<Partial<Task> | null>(null);
   const [filterPriority, setFilterPriority] = useState('all');
   const [agents, setAgents] = useState<{id: number; name: string; role: string}[]>([]);
+  const [draggedTaskId, setDraggedTaskId] = useState<number | null>(null);
+  const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -155,7 +159,7 @@ export default function TasksPage() {
               <option value="low">Low</option>
             </select>
             <button
-              onClick={() => { setCurrentTask({ status: 'todo', priority: 'medium', completed: false }); setShowModal(true); }}
+              onClick={() => { setCurrentTask({ status: 'todo', priority: 'medium', type: 'general', completed: false }); setShowModal(true); }}
               className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-lg"
               style={{ background: 'linear-gradient(135deg, #C9A96E, #8A6F2F)', boxShadow: '0 2px 8px rgba(201,169,110,0.3)' }}
             >
@@ -175,7 +179,18 @@ export default function TasksPage() {
             {TASK_STATUSES.map((status) => {
               const statusTasks = getTasksByStatus(status.id);
               return (
-                <div key={status.id}>
+                <div key={status.id}
+                  onDragOver={(e) => { e.preventDefault(); setDragOverStatus(status.id); }}
+                  onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverStatus(null); }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const id = parseInt(e.dataTransfer.getData('text/plain'));
+                    if (!id) return;
+                    const alreadyHere = getTasksByStatus(status.id).some(t => t.id === id);
+                    if (!alreadyHere) handleStatusChange(id, status.id);
+                    setDragOverStatus(null);
+                  }}
+                  style={{ outline: dragOverStatus === status.id && draggedTaskId ? `2px dashed ${status.dot}` : 'none', outlineOffset: '-2px', borderRadius: '12px', transition: 'outline 0.1s' }}>
                   <div className="flex items-center gap-2 mb-3 px-1">
                     <div className="w-2.5 h-2.5 rounded-full" style={{ background: status.dot }} />
                     <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#374151' }}>{status.name}</span>
@@ -187,7 +202,14 @@ export default function TasksPage() {
                       const isOverdue = task.due_date && new Date(task.due_date) < new Date() && !task.completed;
                       return (
                         <div key={task.id} className="bg-white rounded-xl border p-4 cursor-pointer transition-all"
-                          style={{ borderColor: '#E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', borderLeft: `3px solid ${status.dot}` }}
+                          draggable
+                          onDragStart={(e) => {
+                            setDraggedTaskId(task.id);
+                            e.dataTransfer.effectAllowed = 'move';
+                            e.dataTransfer.setData('text/plain', String(task.id));
+                          }}
+                          onDragEnd={() => { setDraggedTaskId(null); setDragOverStatus(null); }}
+                          style={{ borderColor: '#E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', borderLeft: `3px solid ${status.dot}`, opacity: draggedTaskId === task.id ? 0.45 : 1, cursor: 'grab', transition: 'opacity 0.15s' }}
                           onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 20px rgba(0,0,0,0.1)'; }}
                           onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)'; }}
                           onClick={() => { setCurrentTask(task); setShowModal(true); }}
@@ -357,8 +379,9 @@ export default function TasksPage() {
                     onFocus={(e) => { e.target.style.borderColor = '#C9A96E'; }} onBlur={(e) => { e.target.style.borderColor = '#E5E7EB'; }}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {[
+                    { label: 'Type', key: 'type', opts: ['general','follow-up','call','meeting','viewing','document','email','other'] },
                     { label: 'Priority', key: 'priority', opts: ['low','medium','high'] },
                     { label: 'Status', key: 'status', opts: TASK_STATUSES.map(s => s.id) },
                   ].map((f) => (

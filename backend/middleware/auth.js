@@ -66,7 +66,7 @@ const requireRole = (...allowedRoles) => {
 };
 
 // Role hierarchy levels: agent < marketing < admin < owner
-const ROLE_LEVELS = { agent: 1, marketing: 2, admin: 3, owner: 4 };
+const ROLE_LEVELS = { agent: 1, finance: 2, admin: 3, owner: 4 };
 
 // Check minimum role level (owner > admin > marketing > agent)
 const requireMinRole = (minRole) => {

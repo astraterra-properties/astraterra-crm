@@ -70,7 +70,10 @@ export default function ContactsPage() {
   // Auth check on mount
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token) router.push('/login');
+    if (!token) { router.push('/login'); return; }
+    const role = localStorage.getItem('userRole') || 'agent';
+    const levels: Record<string, number> = { owner: 4, admin: 3, finance: 2, agent: 1 };
+    setCanDelete((levels[role] ?? 0) >= (levels['admin'] ?? 99));
   }, []);
 
   // Fetch whenever page, searchTerm, or typeFilter changes
@@ -347,12 +350,12 @@ export default function ContactsPage() {
 
       {showModal && currentContact && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="bg-white rounded-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="p-6 border-b" style={{ borderColor: '#E5E7EB' }}>
               <h2 className="text-lg font-bold" style={{ color: '#131B2B' }}>{currentContact.id ? 'Edit Contact' : 'New Contact'}</h2>
             </div>
             <form onSubmit={handleSave} className="p-6">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
                   { label: 'Name *', key: 'name', type: 'text', req: true },
                   { label: 'Phone *', key: 'phone', type: 'text', req: true },

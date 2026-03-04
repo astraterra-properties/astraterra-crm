@@ -39,7 +39,10 @@ router.get('/', async (req, res) => {
         c.budget_max,
         c.property_type,
         c.location_preference,
-        u.name as assigned_to_name
+        c.lead_pool,
+        u.name as assigned_to_name,
+        (SELECT COUNT(*) FROM tasks WHERE related_type='lead' AND related_id=l.id AND status != 'completed' AND completed != 1) as pending_tasks,
+        (SELECT json_group_array(json_object('id',t.id,'title',t.title,'due_date',t.due_date,'priority',t.priority)) FROM tasks t WHERE t.related_type='lead' AND t.related_id=l.id AND t.status != 'completed' AND t.completed != 1 ORDER BY t.due_date ASC LIMIT 3) as task_list
       FROM leads l
       LEFT JOIN contacts c ON l.contact_id = c.id
       LEFT JOIN users u ON l.assigned_to = u.id
@@ -237,6 +240,7 @@ router.get('/:id', async (req, res) => {
         c.budget_max,
         c.property_type,
         c.location_preference,
+        c.lead_pool,
         u.name as assigned_to_name,
         u.email as assigned_to_email
       FROM leads l
@@ -330,12 +334,21 @@ router.post('/', async (req, res) => {
 
 /**
  * PUT /api/leads/:id
- * Update lead
+ * Update lead — saves to leads table AND linked contacts table
  */
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const {
+      // Contact fields (stored in contacts table)
+      name,
+      phone,
+      email,
+      location_preference,
+      budget_min,
+      budget_max,
+      property_type,
+      // Lead fields (stored in leads table)
       status,
       priority,
       assigned_to,
@@ -347,128 +360,109 @@ router.put('/:id', async (req, res) => {
       pipeline_stage,
       lead_type,
       tags,
+      source,
       source_channel,
       whatsapp_number,
       last_activity,
       next_followup_date,
     } = req.body;
 
+    // ── 1. Get the lead's contact_id ──────────────────────────────────
+    const leadRow = await query('SELECT contact_id FROM leads WHERE id = $1', [id]);
+    if (!leadRow.rows.length) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+    const contactId = leadRow.rows[0].contact_id;
+
+    // ── 2. Update contacts table if there's a linked contact ──────────
+    if (contactId) {
+      const contactUpdates = [];
+      const contactValues = [];
+      let cp = 1;
+
+      if (name  !== undefined) { contactUpdates.push(`name = $${cp++}`);                contactValues.push(name); }
+      if (phone !== undefined) { contactUpdates.push(`phone = $${cp++}`);               contactValues.push(phone); }
+      if (email !== undefined) { contactUpdates.push(`email = $${cp++}`);               contactValues.push(email); }
+      if (location_preference !== undefined) { contactUpdates.push(`location_preference = $${cp++}`); contactValues.push(location_preference); }
+      if (budget_min  !== undefined) { contactUpdates.push(`budget_min = $${cp++}`);    contactValues.push(budget_min); }
+      if (budget_max  !== undefined) { contactUpdates.push(`budget_max = $${cp++}`);    contactValues.push(budget_max); }
+      if (property_type !== undefined) { contactUpdates.push(`property_type = $${cp++}`); contactValues.push(property_type); }
+      if (source !== undefined) { contactUpdates.push(`source = $${cp++}`);             contactValues.push(source); }
+      if (notes !== undefined) { contactUpdates.push(`notes = $${cp++}`);               contactValues.push(notes); }
+
+      if (contactUpdates.length > 0) {
+        contactValues.push(contactId);
+        await query(
+          `UPDATE contacts SET ${contactUpdates.join(', ')}, updated_at = datetime('now') WHERE id = $${cp}`,
+          contactValues
+        );
+      }
+    }
+
+    // ── 3. Update leads table ─────────────────────────────────────────
     const updates = [];
     const values = [];
     let paramCount = 1;
 
-    if (status !== undefined) {
-      updates.push(`status = $${paramCount}`);
-      values.push(status);
-      paramCount++;
-    }
+    if (status         !== undefined) { updates.push(`status = $${paramCount++}`);          values.push(status); }
+    if (priority       !== undefined) { updates.push(`priority = $${paramCount++}`);         values.push(priority); }
+    if (assigned_to    !== undefined) { updates.push(`assigned_to = $${paramCount++}`);      values.push(assigned_to); }
+    if (budget         !== undefined) { updates.push(`budget = $${paramCount++}`);           values.push(budget); }
+    if (requirements   !== undefined) { updates.push(`requirements = $${paramCount++}`);     values.push(requirements); }
+    if (notes          !== undefined) { updates.push(`notes = $${paramCount++}`);            values.push(notes); }
+    if (next_follow_up !== undefined) { updates.push(`next_follow_up = $${paramCount++}`);   values.push(next_follow_up); }
+    if (score          !== undefined) { updates.push(`score = $${paramCount++}`);            values.push(score); }
+    if (pipeline_stage !== undefined) { updates.push(`pipeline_stage = $${paramCount++}`);   values.push(pipeline_stage); }
+    if (lead_type      !== undefined) { updates.push(`lead_type = $${paramCount++}`);        values.push(lead_type); }
+    if (tags           !== undefined) { updates.push(`tags = $${paramCount++}`);             values.push(tags); }
+    if (source_channel !== undefined) { updates.push(`source_channel = $${paramCount++}`);   values.push(source_channel); }
+    if (source         !== undefined) { updates.push(`source = $${paramCount++}`);           values.push(source); }
+    if (whatsapp_number !== undefined) { updates.push(`whatsapp_number = $${paramCount++}`); values.push(whatsapp_number); }
+    if (last_activity  !== undefined) { updates.push(`last_activity = $${paramCount++}`);    values.push(last_activity); }
+    if (next_followup_date !== undefined) { updates.push(`next_followup_date = $${paramCount++}`); values.push(next_followup_date); }
 
-    if (priority !== undefined) {
-      updates.push(`priority = $${paramCount}`);
-      values.push(priority);
-      paramCount++;
-    }
-
-    if (assigned_to !== undefined) {
-      updates.push(`assigned_to = $${paramCount}`);
-      values.push(assigned_to);
-      paramCount++;
-    }
-
-    if (budget !== undefined) {
-      updates.push(`budget = $${paramCount}`);
-      values.push(budget);
-      paramCount++;
-    }
-
-    if (requirements !== undefined) {
-      updates.push(`requirements = $${paramCount}`);
-      values.push(requirements);
-      paramCount++;
-    }
-
-    if (notes !== undefined) {
-      updates.push(`notes = $${paramCount}`);
-      values.push(notes);
-      paramCount++;
-    }
-
-    if (next_follow_up !== undefined) {
-      updates.push(`next_follow_up = $${paramCount}`);
-      values.push(next_follow_up);
-      paramCount++;
-    }
-
-    if (score !== undefined) {
-      updates.push(`score = $${paramCount}`);
-      values.push(score);
-      paramCount++;
-    }
-
-    if (pipeline_stage !== undefined) {
-      updates.push(`pipeline_stage = $${paramCount}`);
-      values.push(pipeline_stage);
-      paramCount++;
-    }
-
-    if (lead_type !== undefined) {
-      updates.push(`lead_type = $${paramCount}`);
-      values.push(lead_type);
-      paramCount++;
-    }
-
-    if (tags !== undefined) {
-      updates.push(`tags = $${paramCount}`);
-      values.push(tags);
-      paramCount++;
-    }
-
-    if (source_channel !== undefined) {
-      updates.push(`source_channel = $${paramCount}`);
-      values.push(source_channel);
-      paramCount++;
-    }
-
-    if (whatsapp_number !== undefined) {
-      updates.push(`whatsapp_number = $${paramCount}`);
-      values.push(whatsapp_number);
-      paramCount++;
-    }
-
-    if (last_activity !== undefined) {
-      updates.push(`last_activity = $${paramCount}`);
-      values.push(last_activity);
-      paramCount++;
-    }
-
-    if (next_followup_date !== undefined) {
-      updates.push(`next_followup_date = $${paramCount}`);
-      values.push(next_followup_date);
-      paramCount++;
-    }
-
-    // Update last_contact_date if status changed
     if (status) {
       updates.push(`last_contact_date = datetime('now')`);
     }
 
-    if (updates.length === 0) {
-      return res.status(400).json({ error: 'No fields to update' });
-    }
+    // Always update updated_at
+    updates.push(`updated_at = datetime('now')`);
 
     values.push(id);
-    const result = await query(`
-      UPDATE leads
-      SET ${updates.join(', ')}
-      WHERE id = $${paramCount}
-      RETURNING *
-    `, values);
+    const result = await query(
+      `UPDATE leads SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING *`,
+      values
+    );
 
+    // ── 4. Auto-pool: if stage moved to 'lost', add contact to lead pool ──
+    if (pipeline_stage === 'lost' && contactId) {
+      await query(
+        `UPDATE contacts SET lead_pool = 1, updated_at = datetime('now') WHERE id = $1`,
+        [contactId]
+      );
+    }
+
+    // ── 5. Return the updated lead with contact fields merged in ──────
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Lead not found' });
     }
 
-    res.json(result.rows[0]);
+    // Fetch the full lead+contact data to return
+    const fullLead = await query(`
+      SELECT l.*,
+             c.name   AS contact_name,
+             c.phone  AS contact_phone,
+             c.email  AS contact_email,
+             c.location_preference,
+             c.budget_min,
+             c.budget_max,
+             c.property_type
+      FROM leads l
+      LEFT JOIN contacts c ON l.contact_id = c.id
+      WHERE l.id = $1
+    `, [id]);
+
+    res.json(fullLead.rows[0] || result.rows[0]);
   } catch (error) {
     console.error('Error updating lead:', error);
     res.status(500).json({ error: 'Failed to update lead' });
@@ -575,6 +569,174 @@ router.post('/bulk-delete', requireMinRole('admin'), async (req, res) => {
   } catch (error) {
     console.error('Error bulk deleting leads:', error);
     res.status(500).json({ error: 'Failed to bulk delete leads' });
+  }
+});
+
+// ─────────────────────────────────────────────
+//  LEAD DOCUMENT ROUTES
+//  Uploaded files go to Cloudinary + saved in documents table
+//  Accessible to all authenticated users (not admin-only)
+// ─────────────────────────────────────────────
+const multer = require('multer');
+const fs = require('fs');
+const crypto = require('crypto');
+const FormData = require('form-data');
+const nodeFetch = (() => { try { return require('node-fetch'); } catch(e) { return null; } })();
+
+const CLOUDINARY_CLOUD = process.env.CLOUDINARY_CLOUD_NAME || 'dumt7udjd';
+const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || '714597318371755';
+const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET || 'fJX-95cOy2jkNd-8jz81d6leDZU';
+
+const leadDocUpload = multer({ dest: '/tmp/crm-lead-uploads/' });
+
+async function uploadLeadDocToCloudinary(filePath, originalName, folder) {
+  const fetch = nodeFetch || (await import('node-fetch')).default;
+  const timestamp = Math.floor(Date.now() / 1000);
+  const paramsToSign = `folder=${folder}&timestamp=${timestamp}`;
+  const signature = crypto.createHash('sha1').update(paramsToSign + CLOUDINARY_API_SECRET).digest('hex');
+  const form = new FormData();
+  form.append('file', fs.createReadStream(filePath), { filename: originalName });
+  form.append('folder', folder);
+  form.append('timestamp', String(timestamp));
+  form.append('api_key', CLOUDINARY_API_KEY);
+  form.append('signature', signature);
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/raw/upload`,
+    { method: 'POST', body: form }
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || 'Cloudinary upload failed');
+  return data;
+}
+
+/**
+ * GET /api/leads/:id/documents
+ * List all documents for a lead
+ */
+router.get('/:id/documents', async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT * FROM documents WHERE entity_type = 'lead' AND entity_id = $1 ORDER BY created_at DESC`,
+      [req.params.id]
+    );
+    res.json({ success: true, documents: result.rows });
+  } catch (err) {
+    console.error('Error fetching lead documents:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/leads/:id/documents
+ * Upload a document for a lead → Cloudinary + documents table
+ */
+router.post('/:id/documents', leadDocUpload.single('file'), async (req, res) => {
+  const tempPath = req.file?.path;
+  try {
+    const leadId = req.params.id;
+    if (!req.file) return res.status(400).json({ error: 'No file provided' });
+
+    // Get lead name for the folder
+    const leadResult = await query(
+      `SELECT l.id, c.name AS contact_name, l.whatsapp_number
+       FROM leads l LEFT JOIN contacts c ON l.contact_id = c.id
+       WHERE l.id = $1`,
+      [leadId]
+    );
+    if (!leadResult.rows.length) return res.status(404).json({ error: 'Lead not found' });
+
+    const lead = leadResult.rows[0];
+    const leadName = lead.contact_name || lead.whatsapp_number || `lead-${leadId}`;
+    const safeLeadName = leadName.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const cloudinaryFolder = `crm-documents/leads/${safeLeadName}`;
+
+    // Upload to Cloudinary
+    const cloudResult = await uploadLeadDocToCloudinary(tempPath, req.file.originalname, cloudinaryFolder);
+    const viewUrl = cloudResult.secure_url;
+    const downloadUrl = viewUrl.replace('/upload/', '/upload/fl_attachment/');
+
+    // Save to documents table (appears in Document Manager too)
+    const insertResult = await query(
+      `INSERT INTO documents
+        (name, original_name, category, entity_type, entity_id, entity_name,
+         drive_file_id, drive_view_link, drive_download_link, drive_folder_id,
+         file_size, mime_type, notes, uploaded_by)
+       VALUES ($1, $2, $3, 'lead', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       RETURNING id`,
+      [
+        req.file.originalname,
+        req.file.originalname,
+        req.body.category || 'Client Document',
+        leadId,
+        leadName,
+        cloudResult.public_id,
+        viewUrl,
+        downloadUrl,
+        cloudinaryFolder,
+        req.file.size,
+        req.file.mimetype,
+        req.body.notes || null,
+        req.user?.email || req.user?.username || 'agent',
+      ]
+    );
+
+    res.json({
+      success: true,
+      document: {
+        id: insertResult.rows[0]?.id,
+        name: req.file.originalname,
+        category: req.body.category || 'Client Document',
+        drive_view_link: viewUrl,
+        drive_download_link: downloadUrl,
+        file_size: req.file.size,
+        mime_type: req.file.mimetype,
+        created_at: new Date().toISOString(),
+      },
+    });
+  } catch (err) {
+    console.error('Lead document upload error:', err.message);
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (tempPath && fs.existsSync(tempPath)) {
+      try { fs.unlinkSync(tempPath); } catch (_) {}
+    }
+  }
+});
+
+/**
+ * DELETE /api/leads/:id/documents/:docId
+ * Delete a document from a lead
+ */
+router.delete('/:id/documents/:docId', async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT * FROM documents WHERE id = $1 AND entity_type = 'lead' AND entity_id = $2`,
+      [req.params.docId, req.params.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Document not found' });
+
+    // Try Cloudinary delete (non-fatal)
+    try {
+      const doc = result.rows[0];
+      if (doc.drive_file_id) {
+        const fetch = nodeFetch || (await import('node-fetch')).default;
+        const timestamp = Math.floor(Date.now() / 1000);
+        const paramsToSign = `public_id=${doc.drive_file_id}&timestamp=${timestamp}`;
+        const signature = crypto.createHash('sha1').update(paramsToSign + CLOUDINARY_API_SECRET).digest('hex');
+        const form = new FormData();
+        form.append('public_id', doc.drive_file_id);
+        form.append('timestamp', String(timestamp));
+        form.append('api_key', CLOUDINARY_API_KEY);
+        form.append('signature', signature);
+        await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/raw/destroy`, { method: 'POST', body: form });
+      }
+    } catch (_) {}
+
+    await query('DELETE FROM documents WHERE id = $1', [req.params.docId]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Lead document delete error:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 

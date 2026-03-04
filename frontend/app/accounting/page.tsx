@@ -192,9 +192,9 @@ export default function AccountingPage() {
   const netPositive = (summary?.net_pl || 0) >= 0;
 
   return (
-    <div className="flex-1 min-h-screen p-6" style={{ background: '#0f1623' }}>
+    <div className="flex-1 min-h-screen p-4 lg:p-6" style={{ background: '#0f1623' }}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #C9A96E, #8A6F2F)' }}>
             <Calculator className="w-5 h-5 text-white" />
@@ -241,8 +241,8 @@ export default function AccountingPage() {
             <div className="px-6 py-4 border-b" style={{ borderColor: 'rgba(201,169,110,0.2)' }}>
               <h3 className="text-base font-semibold text-white">Monthly Summary — {currentMonth}</h3>
             </div>
-            <div className="p-6">
-              <table className="w-full">
+            <div className="p-6 overflow-x-auto">
+              <table className="w-full min-w-max">
                 <tbody className="divide-y" style={{ borderColor: 'rgba(201,169,110,0.1)' }}>
                   <tr>
                     <td className="py-3 text-sm text-white font-medium">💰 Total Revenue (Closed Deals)</td>
@@ -400,7 +400,8 @@ export default function AccountingPage() {
                 Total: AED {fmt(commissions.reduce((s, c) => s + c.amount, 0))}
               </span>
             </div>
-            <table className="w-full">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-max">
               <thead>
                 <tr className="border-b" style={trStyle}>
                   <th className={thCls} style={thStyle}>Employee</th>
@@ -433,6 +434,7 @@ export default function AccountingPage() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
@@ -471,7 +473,8 @@ export default function AccountingPage() {
                 Total: AED {fmt(filteredExp.reduce((s, e) => s + e.amount, 0))}
               </span>
             </div>
-            <table className="w-full">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-max">
               <thead>
                 <tr className="border-b" style={trStyle}>
                   <th className={thCls} style={thStyle}>Category</th>
@@ -515,6 +518,7 @@ export default function AccountingPage() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}

@@ -41,8 +41,8 @@ router.post('/register', async (req, res) => {
       return res.status(409).json({ error: 'Email already registered' });
     }
 
-    // Hash password
-    const saltRounds = 10;
+    // Hash password — 12 rounds is the current security standard
+    const saltRounds = 12;
     const password_hash = await bcrypt.hash(password, saltRounds);
 
     // Create user
@@ -135,7 +135,12 @@ router.post('/login', async (req, res) => {
         name: user.name,
         role: user.role,
         phone: user.phone,
-        avatar_url: user.avatar_url
+        avatar_url: user.avatar_url,
+        rera_number: user.rera_number,
+        specialty: user.specialty,
+        transactions_count: user.transactions_count,
+        about: user.about,
+        profile_complete: user.profile_complete
       },
       token
     });
@@ -169,7 +174,8 @@ router.get('/me', authenticateToken, async (req, res) => {
     const result = await query(`
       SELECT 
         id, email, name, phone, role, team_id, 
-        commission_rate, avatar_url, active, last_login, created_at
+        commission_rate, avatar_url, active, last_login, created_at,
+        rera_number, specialty, transactions_count, about, profile_complete
       FROM users 
       WHERE id = $1
     `, [req.user.id]);
@@ -235,6 +241,83 @@ router.put('/me', authenticateToken, async (req, res) => {
 });
 
 /**
+ * PUT /api/auth/profile
+ * Update current user profile
+ */
+router.put('/profile', authenticateToken, async (req, res) => {
+  try {
+    const { name, phone, email, avatar_url, rera_number, specialty, transactions_count, about } = req.body;
+
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (name !== undefined) { updates.push(`name = $${paramCount}`); values.push(name); paramCount++; }
+    if (phone !== undefined) { updates.push(`phone = $${paramCount}`); values.push(phone); paramCount++; }
+    if (email !== undefined) { updates.push(`email = $${paramCount}`); values.push(email); paramCount++; }
+    if (avatar_url !== undefined) { updates.push(`avatar_url = $${paramCount}`); values.push(avatar_url); paramCount++; }
+    if (rera_number !== undefined) { updates.push(`rera_number = $${paramCount}`); values.push(rera_number); paramCount++; }
+    if (specialty !== undefined) { updates.push(`specialty = $${paramCount}`); values.push(specialty); paramCount++; }
+    if (transactions_count !== undefined) { updates.push(`transactions_count = $${paramCount}`); values.push(Number(transactions_count) || 0); paramCount++; }
+    if (about !== undefined) { updates.push(`about = $${paramCount}`); values.push(about); paramCount++; }
+
+    // Auto-compute profile_complete: required fields must be non-empty
+    // We need current values to check — fetch them first
+    const current = await query(`SELECT * FROM users WHERE id = $1`, [req.user.id]);
+    const cur = current.rows[0] || {};
+    const merged = {
+      name: name !== undefined ? name : cur.name,
+      phone: phone !== undefined ? phone : cur.phone,
+      rera_number: rera_number !== undefined ? rera_number : cur.rera_number,
+      specialty: specialty !== undefined ? specialty : cur.specialty,
+      about: about !== undefined ? about : cur.about,
+    };
+    const reraRequiredRoles = ['agent', 'sales_manager'];
+    const userRole = cur.role || 'agent';
+    const reraOk = reraRequiredRoles.includes(userRole) ? !!merged.rera_number : true;
+    const isComplete = !!(merged.name && merged.phone && reraOk && merged.specialty && merged.about);
+    updates.push(`profile_complete = $${paramCount}`); values.push(isComplete ? 1 : 0); paramCount++;
+    updates.push(`updated_at = $${paramCount}`); values.push(new Date().toISOString()); paramCount++;
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    values.push(req.user.id);
+    const result = await query(`
+      UPDATE users
+      SET ${updates.join(', ')}
+      WHERE id = $${paramCount}
+      RETURNING id, email, name, phone, role, avatar_url, rera_number, specialty, transactions_count, about, profile_complete
+    `, values);
+
+    res.json({ success: true, user: result.rows[0] });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+/**
+ * GET /api/auth/team
+ * Get all staff profiles (visible to authenticated users)
+ */
+router.get('/team', authenticateToken, async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT id, name, email, phone, role, avatar_url, rera_number, specialty, transactions_count, about, profile_complete, created_at
+      FROM users
+      WHERE active = 1
+      ORDER BY role DESC, name ASC
+    `, []);
+    res.json({ team: result.rows });
+  } catch (error) {
+    console.error('Error fetching team:', error);
+    res.status(500).json({ error: 'Failed to fetch team' });
+  }
+});
+
+/**
  * POST /api/auth/change-password
  * Change user password
  */
@@ -270,7 +353,7 @@ router.post('/change-password', authenticateToken, async (req, res) => {
     }
 
     // Hash new password
-    const saltRounds = 10;
+    const saltRounds = 12;
     const new_password_hash = await bcrypt.hash(new_password, saltRounds);
 
     // Update password
@@ -308,6 +391,52 @@ router.post('/verify-token', async (req, res) => {
   } catch (error) {
     console.error('Token verification error:', error);
     res.status(500).json({ error: 'Failed to verify token' });
+  }
+});
+
+/**
+ * POST /api/auth/avatar
+ * Upload profile photo → Cloudinary → save avatar_url on user
+ */
+const multer = require('multer');
+const fs = require('fs');
+const crypto = require('crypto');
+const FormData = require('form-data');
+const nodeFetch = (() => { try { return require('node-fetch'); } catch(e) { return null; } })();
+const avatarUpload = multer({ dest: '/tmp/crm-avatars/' });
+
+const CLOUDINARY_CLOUD  = process.env.CLOUDINARY_CLOUD_NAME  || 'dumt7udjd';
+const CLOUDINARY_KEY    = process.env.CLOUDINARY_API_KEY     || '714597318371755';
+const CLOUDINARY_SECRET = process.env.CLOUDINARY_API_SECRET  || 'fJX-95cOy2jkNd-8jz81d6leDZU';
+
+router.post('/avatar', authenticateToken, avatarUpload.single('avatar'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  try {
+    const fetch = nodeFetch || (await import('node-fetch')).default;
+    const timestamp = Math.floor(Date.now() / 1000);
+    const folder = 'crm-avatars';
+    const paramsToSign = `folder=${folder}&timestamp=${timestamp}`;
+    const signature = crypto.createHash('sha1').update(paramsToSign + CLOUDINARY_SECRET).digest('hex');
+
+    const form = new FormData();
+    form.append('file', fs.createReadStream(req.file.path), { filename: req.file.originalname || 'avatar.jpg' });
+    form.append('folder', folder);
+    form.append('timestamp', String(timestamp));
+    form.append('api_key', CLOUDINARY_KEY);
+    form.append('signature', signature);
+
+    const upload = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, { method: 'POST', body: form });
+    const data = await upload.json();
+    fs.unlink(req.file.path, () => {});
+    if (!upload.ok) throw new Error(data.error?.message || 'Upload failed');
+
+    // Save avatar_url on user
+    await query(`UPDATE users SET avatar_url = $1 WHERE id = $2`, [data.secure_url, req.user.id]);
+    res.json({ success: true, avatar_url: data.secure_url });
+  } catch (err) {
+    console.error('Avatar upload error:', err);
+    fs.unlink(req.file?.path || '', () => {});
+    res.status(500).json({ error: 'Failed to upload avatar' });
   }
 });
 

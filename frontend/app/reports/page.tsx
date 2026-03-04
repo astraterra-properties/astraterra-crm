@@ -82,6 +82,12 @@ export default function Reports() {
   const dealsByStage: Record<string, number> = {};
   deals.forEach((d) => { dealsByStage[d.stage || 'unknown'] = (dealsByStage[d.stage || 'unknown'] || 0) + 1; });
 
+  const PIPELINE_STAGE_ORDER = ['new_lead','contacted','qualified','site_visit','offer_made','negotiation','deal_closed','lost'];
+  const PIPELINE_STAGE_LABELS: Record<string, string> = { new_lead:'New Lead', contacted:'Contacted', qualified:'Qualified', site_visit:'Site Visit', offer_made:'Offer Made', negotiation:'Negotiation', deal_closed:'Deal Closed', lost:'Lost' };
+  const PIPELINE_STAGE_COLORS: Record<string, string> = { new_lead:'#3B82F6', contacted:'#F59E0B', qualified:'#10B981', site_visit:'#8B5CF6', offer_made:'#F97316', negotiation:'#EF4444', deal_closed:'#065F46', lost:'#9CA3AF' };
+  const leadsByPipelineStage: Record<string, number> = {};
+  leads.forEach((l) => { const s = l.pipeline_stage || 'new_lead'; leadsByPipelineStage[s] = (leadsByPipelineStage[s] || 0) + 1; });
+
   const tabs = [
     { id: 'summary', label: 'Summary', icon: BarChart3 },
     { id: 'leads', label: 'Leads', icon: Users, count: totals.leads },
@@ -220,20 +226,22 @@ export default function Reports() {
                 </div>
               </div>
 
-              {/* Deals by Stage */}
+              {/* Pipeline by Stage */}
               <div className="bg-white rounded-xl border p-5" style={{ borderColor: '#E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-                <h3 className="text-sm font-semibold mb-4" style={{ color: '#131B2B' }}>Deals by Stage</h3>
+                <h3 className="text-sm font-semibold mb-4" style={{ color: '#131B2B' }}>Pipeline by Stage</h3>
                 <div className="space-y-3">
-                  {Object.entries(dealsByStage).map(([stage, count]) => {
-                    const pct = deals.length ? Math.round((count / deals.length) * 100) : 0;
+                  {PIPELINE_STAGE_ORDER.map((stage) => {
+                    const count = leadsByPipelineStage[stage] || 0;
+                    const total = Object.values(leadsByPipelineStage).reduce((a, b) => a + b, 0);
+                    const pct = total ? Math.round((count / total) * 100) : 0;
                     return (
                       <div key={stage}>
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs capitalize font-medium" style={{ color: '#374151' }}>{stage.replace('_', ' ')}</span>
+                          <span className="text-xs font-semibold" style={{ color: PIPELINE_STAGE_COLORS[stage] }}>{PIPELINE_STAGE_LABELS[stage]}</span>
                           <span className="text-xs" style={{ color: '#6B7280' }}>{count} ({pct}%)</span>
                         </div>
-                        <div className="h-1.5 rounded-full" style={{ background: '#F3F4F6' }}>
-                          <div className="h-full rounded-full" style={{ background: '#131B2B', width: `${pct}%` }} />
+                        <div className="h-2 rounded-full" style={{ background: '#F3F4F6' }}>
+                          <div className="h-full rounded-full transition-all" style={{ background: PIPELINE_STAGE_COLORS[stage], width: `${pct}%` }} />
                         </div>
                       </div>
                     );

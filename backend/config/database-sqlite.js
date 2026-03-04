@@ -28,6 +28,42 @@ const db = new sqlite3.Database(DB_PATH, (err) => {
 // Enable foreign keys
 db.run('PRAGMA foreign_keys = ON');
 
+// Run migrations (wrapped in try/catch for idempotency)
+const migrations = [
+  "ALTER TABLE chat_messages ADD COLUMN reply_to_id INTEGER",
+  "ALTER TABLE chat_messages ADD COLUMN deleted_at DATETIME",
+  "ALTER TABLE chat_messages ADD COLUMN file_url TEXT",
+  "ALTER TABLE chat_messages ADD COLUMN file_name TEXT",
+  "ALTER TABLE chat_messages ADD COLUMN file_type TEXT",
+  `CREATE TABLE IF NOT EXISTS chat_reactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    message_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    emoji TEXT NOT NULL,
+    user_name TEXT,
+    created_at DATETIME DEFAULT (datetime('now')),
+    UNIQUE(message_id, user_id)
+  )`,
+  `CREATE TABLE IF NOT EXISTS chat_typing (
+    room_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    user_name TEXT,
+    updated_at DATETIME DEFAULT (datetime('now')),
+    PRIMARY KEY(room_id, user_id)
+  )`
+];
+
+for (const sql of migrations) {
+  db.run(sql, (err) => {
+    if (err && !err.message.includes('duplicate column')) {
+      // ignore "duplicate column" errors from ALTER TABLE — already ran
+      if (!err.message.includes('already exists')) {
+        console.warn('Migration warning:', err.message);
+      }
+    }
+  });
+}
+
 /**
  * Query wrapper (converts PostgreSQL-style queries to SQLite)
  */

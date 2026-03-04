@@ -344,37 +344,32 @@ router.post('/', async (req, res) => {
     } = req.body;
 
     // Validate required fields
-    if (!title || !type) {
+    if (!title) {
       return res.status(400).json({
         success: false,
-        message: 'Title and Type are required'
+        message: 'Title is required'
       });
     }
 
     const result = await query(`
       INSERT INTO tasks (
-        title, description, type, priority, due_date, due_time,
-        assigned_to, related_contact_id, related_property_id,
-        related_deal_id, reminder_time, status
+        title, description, type, priority, due_date,
+        assigned_to, status, created_by
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+      VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)
     `, [
       title,
-      description,
-      type,
+      description || null,
+      type || 'general',
       priority || 'medium',
-      due_date,
-      due_time,
+      due_date || null,
       assigned_to || req.user.id,
-      related_contact_id,
-      related_property_id,
-      related_deal_id,
-      reminder_time
+      req.user.id,
     ]);
 
     // Log activity
     await query(`
-      INSERT INTO activity_log (user_id, entity_type, entity_id, action, details)
+      INSERT INTO activity_log (user_id, entity_type, entity_id, action, changes)
       VALUES (?, 'task', ?, 'created', ?)
     `, [req.user.id, result.lastID, JSON.stringify({ title, type, priority })]);
 
@@ -410,7 +405,8 @@ router.put('/:id', async (req, res) => {
       due_time,
       status,
       assigned_to,
-      reminder_time
+      reminder_time,
+      completed,
     } = req.body;
 
     const updates = [];
@@ -436,10 +432,7 @@ router.put('/:id', async (req, res) => {
       updates.push('due_date = ?');
       params.push(due_date);
     }
-    if (due_time !== undefined) {
-      updates.push('due_time = ?');
-      params.push(due_time);
-    }
+    // due_time not in schema — skip
     if (status !== undefined) {
       updates.push('status = ?');
       params.push(status);
@@ -453,10 +446,16 @@ router.put('/:id', async (req, res) => {
       updates.push('assigned_to = ?');
       params.push(assigned_to);
     }
-    if (reminder_time !== undefined) {
-      updates.push('reminder_time = ?');
-      params.push(reminder_time);
+    if (completed !== undefined) {
+      updates.push('completed = ?');
+      params.push(completed ? 1 : 0);
+      if (completed) {
+        updates.push('completed_at = CURRENT_TIMESTAMP');
+        // Also set status to done if completing
+        if (status === undefined) { updates.push('status = ?'); params.push('done'); }
+      }
     }
+    // reminder_time not in schema — skip
 
     if (updates.length === 0) {
       return res.status(400).json({
@@ -483,7 +482,7 @@ router.put('/:id', async (req, res) => {
 
     // Log activity
     await query(`
-      INSERT INTO activity_log (user_id, entity_type, entity_id, action, details)
+      INSERT INTO activity_log (user_id, entity_type, entity_id, action, changes)
       VALUES (?, 'task', ?, 'updated', ?)
     `, [req.user.id, id, JSON.stringify(req.body)]);
 
@@ -529,7 +528,7 @@ router.post('/:id/complete', async (req, res) => {
 
     // Log activity
     await query(`
-      INSERT INTO activity_log (user_id, entity_type, entity_id, action, details)
+      INSERT INTO activity_log (user_id, entity_type, entity_id, action, changes)
       VALUES (?, 'task', ?, 'completed', ?)
     `, [req.user.id, id, JSON.stringify({ completion_notes })]);
 
@@ -575,7 +574,7 @@ router.delete('/:id', async (req, res) => {
 
     // Log activity
     await query(`
-      INSERT INTO activity_log (user_id, entity_type, entity_id, action, details)
+      INSERT INTO activity_log (user_id, entity_type, entity_id, action, changes)
       VALUES (?, 'task', ?, 'deleted', '{}')
     `, [req.user.id, id]);
 
