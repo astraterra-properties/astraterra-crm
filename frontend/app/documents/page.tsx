@@ -26,6 +26,7 @@ const COMPANY_CATEGORIES = [
   'Legal',
   'Marketing',
   'Templates',
+  'Processes & SOPs',
   'Other',
 ];
 
@@ -141,6 +142,38 @@ function FileIcon({ mimeType }: { mimeType: string }) {
   );
 }
 
+function DocViewer({ url, name, onClose }: { url: string; name: string; onClose: () => void }) {
+  const isPdf = name.toLowerCase().endsWith('.pdf') || url.includes('.pdf');
+  const isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(name) || /\.(png|jpg|jpeg|gif|webp)/i.test(url);
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/90" onClick={onClose}>
+      <div className="flex items-center justify-between px-4 py-3 bg-black/60 border-b border-white/10" onClick={e => e.stopPropagation()}>
+        <span className="text-white font-medium text-sm truncate max-w-[70%]">{name}</span>
+        <div className="flex gap-2">
+          <a href={url.replace('/upload/', '/upload/fl_attachment/')} download className="text-xs px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white/80">⬇ Download</a>
+          <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white/80">↗ Open</a>
+          <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/40 text-red-300">✕ Close</button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-hidden" onClick={e => e.stopPropagation()}>
+        {isPdf ? (
+          <iframe src={`https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`} className="w-full h-full border-0" title={name} />
+        ) : isImage ? (
+          <div className="flex items-center justify-center h-full p-4">
+            <img src={url} alt={name} className="max-w-full max-h-full object-contain rounded-lg" />
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full text-white/50 gap-4">
+            <span className="text-5xl">📄</span>
+            <p>Cannot preview this file type.</p>
+            <a href={url} target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-lg bg-amber-500/20 text-amber-300 hover:bg-amber-500/30">Open in new tab</a>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DocCard({
   doc,
   showClientChip,
@@ -151,8 +184,11 @@ function DocCard({
   onDelete: (id: number) => void;
 }) {
   const [confirming, setConfirming] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
 
   return (
+    <>
+      {previewing && <DocViewer url={doc.drive_view_link} name={doc.name} onClose={() => setPreviewing(false)} />}
     <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col gap-3 hover:border-white/20 transition-all">
       {showClientChip && doc.entity_name && (
         <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 w-fit truncate max-w-full">
@@ -178,17 +214,16 @@ function DocCard({
         {doc.uploaded_by && <span>👤 {doc.uploaded_by}</span>}
       </div>
       <div className="flex gap-2 mt-auto pt-2 border-t border-white/5">
-        <a
-          href={doc.drive_view_link}
-          target="_blank"
-          rel="noopener noreferrer"
+        <button
+          onClick={() => setPreviewing(true)}
           className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 transition-colors"
         >
           <Eye className="w-3 h-3" />
           Preview
-        </a>
+        </button>
         <a
-          href={doc.drive_download_link}
+          href={doc.drive_download_link || doc.drive_view_link}
+          download
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 transition-colors"
@@ -220,6 +255,7 @@ function DocCard({
         )}
       </div>
     </div>
+    </>
   );
 }
 
@@ -279,10 +315,19 @@ export default function DocumentsPage() {
         const res = await fetch(`${API_BASE}/api/documents?${params}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        if (res.status === 401 || res.status === 403) {
+          // Token expired — redirect to login
+          localStorage.removeItem('token');
+          window.location.href = '/login';
+          return;
+        }
         const data = await res.json();
+        if (!res.ok) {
+          console.error('Documents API error:', data.error);
+          setDocuments([]);
+          return;
+        }
         setDocuments(data.documents || []);
-      } catch {
-        setDocuments([]);
       } finally {
         setLoading(false);
       }

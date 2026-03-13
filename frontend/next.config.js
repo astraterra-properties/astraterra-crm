@@ -17,6 +17,17 @@ const nextConfig = {
         source: '/landscape-api/:path*',
         destination: 'http://localhost:4000/api/:path*',
       },
+      {
+        // Futures Trend Bot dashboard proxy (port 4506) — actual execution engine
+        source: '/futures-pro-api/:path*',
+        destination: 'http://localhost:4506/trend/:path*',
+      },
+      {
+        // Gold Scalper dashboard proxy
+        source: '/gold-scalper-api/:path*',
+        destination: 'http://localhost:4507/gold-binance/:path*',
+      },
+
     ];
   },
   async headers() {

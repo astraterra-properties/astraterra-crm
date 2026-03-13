@@ -121,6 +121,15 @@ const allMenuGroups = [
     ]
   },
   {
+    label: 'Trading',
+    minRole: 'admin',
+    items: [
+      { name: 'Trading Dashboard', path: '/trading',       icon: BarChart3, minRole: 'admin' },
+      { name: 'Futures Pro Bot',    path: '/futures-trend', icon: BarChart3, minRole: 'admin' },
+      { name: 'Binance Gold Scalper', path: '/gold-binance',  icon: BarChart3, minRole: 'admin' },
+    ]
+  },
+  {
     label: 'Analytics',
     minRole: 'agent',
     items: [
