@@ -23,6 +23,11 @@ const nextConfig = {
         destination: 'http://localhost:4506/trend/:path*',
       },
       {
+        // Futures Trend page API calls
+        source: '/futures-trend/api/:path*',
+        destination: 'http://localhost:4506/trend/:path*',
+      },
+      {
         // Gold Scalper dashboard proxy
         source: '/gold-scalper-api/:path*',
         destination: 'http://localhost:4507/gold-binance/:path*',

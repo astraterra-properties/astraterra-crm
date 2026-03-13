@@ -3,7 +3,7 @@
 set -e
 
 FRONTEND=/data/.openclaw/workspace/astraterra-crm/frontend
-PM2=/skeleton/.npm-global/bin/pm2
+PM2="node /data/.npm/_npx/9bf7a925f1f86236/node_modules/pm2/bin/pm2"
 
 echo "🔨 Building frontend..."
 cd "$FRONTEND"
@@ -16,7 +16,7 @@ if [ ! -f "$FRONTEND/.next/required-server-files.json" ]; then
 fi
 
 echo "✅ Build verified — restarting PM2..."
-$PM2 restart crm-frontend
+$PM2 restart 2
 sleep 5
 
 # Health check
@@ -25,5 +25,5 @@ if [ "$STATUS" = "200" ]; then
   echo "✅ CRM live — HTTP $STATUS"
 else
   echo "⚠️  CRM returned HTTP $STATUS — check logs"
-  $PM2 logs crm-frontend --lines 20 --nostream
+  $PM2 logs 2 --lines 20 --nostream
 fi
