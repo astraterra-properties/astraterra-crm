@@ -428,6 +428,35 @@ app.all('/api/futures-pro/:path(*)', async (req, res) => {
   }
 });
 
+// Internal: seed admin users (for fresh DB recovery — no restart needed)
+app.post('/api/internal/seed-admin', async (req, res) => {
+  const secret = req.headers['x-queue-secret'] || req.query.secret;
+  if (secret !== (process.env.WA_QUEUE_SECRET || 'astra-wa-queue-2026')) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const bcrypt = require('bcrypt');
+    const { query: q } = require('./config/database');
+    await q(`CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL, name TEXT NOT NULL, phone TEXT, role TEXT DEFAULT 'agent',
+      active INTEGER DEFAULT 1, profile_complete INTEGER DEFAULT 0, rera_number TEXT,
+      specialty TEXT, total_transactions INTEGER DEFAULT 0, about TEXT, avatar_url TEXT,
+      last_login TEXT, created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now'))
+    )`, []);
+    const existing = await q(`SELECT COUNT(*) as cnt FROM users`, []);
+    const count = existing.rows[0]?.cnt || 0;
+    if (count > 0) return res.json({ status: 'already_seeded', users: count });
+    const adminHash = await bcrypt.hash('qwerty@123', 12);
+    const josephHash = await bcrypt.hash('joseph123', 12);
+    await q(`INSERT INTO users (email,password_hash,name,role,active,profile_complete) VALUES (?,?,?,?,1,1)`,
+      ['Test@admin.com', adminHash, 'Admin', 'admin']);
+    await q(`INSERT INTO users (email,password_hash,name,role,active,profile_complete) VALUES (?,?,?,?,1,1)`,
+      ['joseph@astraterra.ae', josephHash, 'Joseph Toubia', 'owner']);
+    res.json({ status: 'seeded', message: 'Admin users created: Test@admin.com (qwerty@123) + joseph@astraterra.ae (joseph123)' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Internal: WhatsApp notification queue (no auth token — uses secret header)
 const WA_SECRET = process.env.WA_QUEUE_SECRET || 'astra-wa-queue-2026';
 
