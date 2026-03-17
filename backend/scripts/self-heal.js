@@ -20,7 +20,8 @@ const path = require('path');
 // ─── Config ────────────────────────────────────────────────────────────────
 const BOT_TOKEN = '8301233584:AAFlAVIrtEm6oAiSzsj93ADHlat-Z4JpW3U';
 const JOSEPH_CHAT_ID = '8117376630';
-const CRM_URL = 'https://crm.astraterra.ae/api/health';
+const CRM_URL = 'http://localhost:3001/api/health';
+const CRM_FRONTEND_URL = 'http://localhost:3000';
 const HEALTH_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 const DEAD_MAN_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
 const LOG_FILE = '/tmp/self-heal.log';
@@ -152,7 +153,7 @@ async function runHealthCheck(forceReport = false) {
   log('🔍 Running health check...');
 
   const crmResult = await checkUrl(CRM_URL);
-  const frontendResult = await checkUrl('https://crm.astraterra.ae');
+  const frontendResult = await checkUrl(CRM_FRONTEND_URL);
   const stats = getSystemStats();
   const pm2 = getPm2Status();
 
