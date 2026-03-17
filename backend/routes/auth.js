@@ -577,3 +577,28 @@ router.post('/reset-password', async (req, res) => {
 });
 
 module.exports = router;
+
+// ─── TEMPORARY: DB Restore endpoint — remove after use ──────────────────────
+const multerRestore = require('multer')({ dest: '/tmp/', limits: { fileSize: 100 * 1024 * 1024 } });
+const fsRestore = require('fs');
+const pathRestore = require('path');
+
+router.post('/restore-db', multerRestore.single('db'), (req, res) => {
+  const secret = req.headers['x-restore-secret'];
+  if (secret !== 'astra-restore-db-2026-secure') return res.status(403).json({ error: 'Forbidden' });
+  if (!req.file) return res.status(400).json({ error: 'No DB file uploaded' });
+
+  const DB_PATH = pathRestore.join(__dirname, '../../../../data/astraterra-crm.db');
+  const dataDir = pathRestore.dirname(DB_PATH);
+  if (!fsRestore.existsSync(dataDir)) fsRestore.mkdirSync(dataDir, { recursive: true });
+
+  // Backup existing
+  if (fsRestore.existsSync(DB_PATH)) {
+    fsRestore.copyFileSync(DB_PATH, DB_PATH + '.backup-' + Date.now());
+  }
+
+  fsRestore.copyFileSync(req.file.path, DB_PATH);
+  try { fsRestore.unlinkSync(req.file.path); } catch(e) {}
+
+  res.json({ success: true, message: 'DB uploaded. Run: pm2 restart astraterra-backend', size: req.file.size });
+});
