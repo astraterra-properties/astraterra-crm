@@ -588,7 +588,7 @@ router.post('/restore-db', multerRestore.single('db'), (req, res) => {
   if (secret !== 'astra-restore-db-2026-secure') return res.status(403).json({ error: 'Forbidden' });
   if (!req.file) return res.status(400).json({ error: 'No DB file uploaded' });
 
-  const DB_PATH = pathRestore.join(__dirname, '../../../../data/astraterra-crm.db');
+  const DB_PATH = pathRestore.join(__dirname, '../../../data/astraterra-crm.db');
   const dataDir = pathRestore.dirname(DB_PATH);
   if (!fsRestore.existsSync(dataDir)) fsRestore.mkdirSync(dataDir, { recursive: true });
 
