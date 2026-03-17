@@ -76,6 +76,19 @@ const migrations = [
   )`
 ];
 
+// Auto-run migrations on startup (safe — versioned, idempotent)
+setTimeout(() => {
+  try {
+    const { execSync } = require('child_process');
+    const migrateScript = require('path').join(__dirname, '../scripts/migrate.js');
+    if (require('fs').existsSync(migrateScript)) {
+      const out = execSync(`node "${migrateScript}"`, { timeout: 30000, env: { ...process.env, DB_PATH: DB_PATH } }).toString();
+      const summary = out.split('\n').filter(l => l.includes('✅') || l.includes('❌')).join(' | ');
+      console.log('[DB] Migrations:', summary || 'ran');
+    }
+  } catch(e) { console.warn('[DB] Migration warning:', e.message?.split('\n')[0]); }
+}, 500);
+
 // Seed default admin users after migrations run (self-healing — runs on every startup)
 setTimeout(async () => {
   try {
