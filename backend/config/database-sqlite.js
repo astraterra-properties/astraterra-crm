@@ -175,8 +175,10 @@ const query = (text, params = []) => {
     if (isSelect) {
       db.all(sqliteText, params, (err, rows) => {
         if (err) {
-          console.error('Query error:', err.message);
-          console.error('Query:', sqliteText);
+          if (!err.message.includes('duplicate column name')) {
+            console.error('Query error:', err.message);
+            console.error('Query:', sqliteText);
+          }
           reject(err);
         } else {
           resolve({ rows: rows || [], rowCount: rows ? rows.length : 0 });
@@ -185,8 +187,10 @@ const query = (text, params = []) => {
     } else if (isInsert && hasReturning) {
       db.run(sqliteText, params, function(err) {
         if (err) {
-          console.error('Query error:', err.message);
-          console.error('Query:', sqliteText);
+          if (!err.message.includes('duplicate column name')) {
+            console.error('Query error:', err.message);
+            console.error('Query:', sqliteText);
+          }
           reject(err);
         } else {
           // Get the inserted row
@@ -201,8 +205,10 @@ const query = (text, params = []) => {
     } else if (isUpdate && hasReturning) {
       db.run(sqliteText, params, function(err) {
         if (err) {
-          console.error('Query error:', err.message);
-          console.error('Query:', sqliteText);
+          if (!err.message.includes('duplicate column name')) {
+            console.error('Query error:', err.message);
+            console.error('Query:', sqliteText);
+          }
           reject(err);
         } else {
           const tableName = sqliteText.match(/UPDATE\s+(\w+)/i)[1];
@@ -246,8 +252,10 @@ const query = (text, params = []) => {
     } else {
       db.run(sqliteText, params, function(err) {
         if (err) {
-          console.error('Query error:', err.message);
-          console.error('Query:', sqliteText);
+          if (!err.message.includes('duplicate column name')) {
+            console.error('Query error:', err.message);
+            console.error('Query:', sqliteText);
+          }
           reject(err);
         } else {
           resolve({ rows: [], rowCount: this.changes });
