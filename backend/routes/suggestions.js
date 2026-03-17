@@ -8,6 +8,22 @@ const router = express.Router();
 const { query } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
+// Ensure table exists on route load
+(async () => {
+  try {
+    await query(`CREATE TABLE IF NOT EXISTS suggestions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT,
+      email TEXT,
+      category TEXT DEFAULT 'General Feedback',
+      message TEXT NOT NULL,
+      source TEXT DEFAULT 'website',
+      status TEXT DEFAULT 'new',
+      created_at TEXT DEFAULT (datetime('now'))
+    )`);
+  } catch (e) { /* table already exists */ }
+})();
+
 /**
  * POST /api/suggestions
  * Public endpoint — called from the website suggestions form (no auth required)

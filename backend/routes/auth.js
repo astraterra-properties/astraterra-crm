@@ -588,9 +588,7 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
-module.exports = router;
-
-// ─── TEMPORARY: DB Restore endpoint — remove after use ──────────────────────
+// ─── DB Restore endpoint ──────────────────────────────────────────────────────
 const multerRestore = require('multer')({ dest: '/tmp/', limits: { fileSize: 100 * 1024 * 1024 } });
 const fsRestore = require('fs');
 const pathRestore = require('path');
@@ -626,3 +624,5 @@ router.post('/restore-db', (req, res, next) => {
     }
   });
 });
+
+module.exports = router;

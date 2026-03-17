@@ -854,8 +854,28 @@ async function run() {
   }
 }
 
+// Suggestions table migration (run after main tables)
+async function ensureSuggestionsTable(db) {
+  return new Promise((resolve) => {
+    db.run(`CREATE TABLE IF NOT EXISTS suggestions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT,
+      email TEXT,
+      category TEXT DEFAULT 'General Feedback',
+      message TEXT NOT NULL,
+      source TEXT DEFAULT 'website',
+      status TEXT DEFAULT 'new',
+      created_at TEXT DEFAULT (datetime('now'))
+    )`, (err) => {
+      if (err) console.error('[db-init] suggestions table error:', err.message);
+      else console.log('✅ Suggestions table initialized');
+      resolve();
+    });
+  });
+}
+
 // Export for programmatic use
-module.exports = { TABLES, run };
+module.exports = { TABLES, run, ensureSuggestionsTable };
 
 // Run if executed directly
 if (require.main === module) {
