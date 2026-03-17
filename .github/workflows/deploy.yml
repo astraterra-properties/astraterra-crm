@@ -3,6 +3,7 @@ name: Deploy to CRM VPS
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -11,13 +12,15 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: 72.61.123.222
-          username: root
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           timeout: 60s
           script: |
             cd /root/astraterra-crm || cd /home/ubuntu/astraterra-crm || cd ~/astraterra-crm
             git pull origin main
-            pm2 restart crm-backend || pm2 restart all
+            NODE_ENV=production PORT=3001 pm2 restart crm-backend || \
+            NODE_ENV=production PORT=3001 pm2 restart astraterra-backend || \
+            pm2 restart all
             echo "Deploy complete"

@@ -440,4 +440,20 @@ router.post('/avatar', authenticateToken, avatarUpload.single('avatar'), async (
   }
 });
 
+// Emergency: self-update + restart (no auth, uses deploy secret)
+router.post('/deploy', async (req, res) => {
+  const secret = req.headers['x-deploy-secret'] || req.body?.secret;
+  if (secret !== 'astra-deploy-2026-secure') return res.status(403).json({ error: 'Forbidden' });
+  res.json({ status: 'deploying', message: 'git pull + restart in progress...' });
+  const { exec } = require('child_process');
+  // Find the project directory
+  const dirs = ['/root/astraterra-crm', '/home/ubuntu/astraterra-crm', process.cwd() + '/..', process.cwd()];
+  let projectDir = dirs.find(d => { try { require('fs').accessSync(d + '/.git'); return true; } catch(e) { return false; } });
+  if (!projectDir) projectDir = process.cwd();
+  exec(`cd "${projectDir}" && git pull origin main && echo PULLED`, (err, stdout, stderr) => {
+    console.log('[Deploy] git pull:', stdout, stderr);
+    setTimeout(() => process.exit(0), 500); // pm2 will auto-restart
+  });
+});
+
 module.exports = router;
