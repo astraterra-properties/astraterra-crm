@@ -390,44 +390,6 @@ app.use('/api/meetings', meetingsRoutes);
 app.use('/api/owner-database', require('./routes/owner-database'));
 app.use('/api/oversight', oversightRoutes);
 
-// ══ PROXY: Futures Pro Bot API ═════════════════════════════════════════════════
-// Forward /api/futures-pro/* requests to localhost:4509/pro/*
-app.all('/api/futures-pro/:path(*)', async (req, res) => {
-  try {
-    const targetUrl = `http://localhost:4509/pro/${req.params.path}${req.url.includes('?') ? '?' + req.url.split('?')[1] : ''}`;
-    const config = {
-      method: req.method,
-      timeout: 10000,
-      validateStatus: () => true, // Don't throw on any status
-    };
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-      config.data = req.body;
-    }
-    const response = await axios(targetUrl, config);
-    
-    // Filter out headers that shouldn't be passed through
-    const headersToExclude = [
-      'transfer-encoding',
-      'content-encoding',
-      'content-length',
-      'connection',
-      'keep-alive',
-      'server',
-    ];
-    const filteredHeaders = {};
-    Object.entries(response.headers).forEach(([key, value]) => {
-      if (!headersToExclude.includes(key.toLowerCase())) {
-        filteredHeaders[key] = value;
-      }
-    });
-    
-    res.status(response.status).set(filteredHeaders).send(response.data);
-  } catch (error) {
-    console.error('[Futures Pro Proxy]', error.message);
-    res.status(503).json({ error: 'Futures Pro API unavailable', details: error.message });
-  }
-});
-
 // Internal: seed admin users (for fresh DB recovery — no restart needed)
 app.post('/api/internal/seed-admin', async (req, res) => {
   const secret = req.headers['x-queue-secret'] || req.query.secret;
