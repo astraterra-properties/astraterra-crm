@@ -30,6 +30,26 @@ db.run('PRAGMA foreign_keys = ON');
 
 // Run migrations (wrapped in try/catch for idempotency)
 const migrations = [
+  // ── Core tables (run first — other tables may depend on users) ──────────────
+  `CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    name TEXT NOT NULL,
+    phone TEXT,
+    role TEXT DEFAULT 'agent',
+    active INTEGER DEFAULT 1,
+    profile_complete INTEGER DEFAULT 0,
+    rera_number TEXT,
+    specialty TEXT,
+    total_transactions INTEGER DEFAULT 0,
+    about TEXT,
+    avatar_url TEXT,
+    last_login TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  )`,
+  // ── Chat tables ─────────────────────────────────────────────────────────────
   "ALTER TABLE chat_messages ADD COLUMN reply_to_id INTEGER",
   "ALTER TABLE chat_messages ADD COLUMN deleted_at DATETIME",
   "ALTER TABLE chat_messages ADD COLUMN file_url TEXT",
@@ -52,6 +72,23 @@ const migrations = [
     PRIMARY KEY(room_id, user_id)
   )`
 ];
+
+// Seed default admin users after migrations run (self-healing — runs on every startup)
+setTimeout(async () => {
+  try {
+    db.get('SELECT COUNT(*) as cnt FROM users', [], async (err, row) => {
+      if (err || (row?.cnt || 0) > 0) return;
+      const bcrypt = require('bcrypt');
+      const adminHash = await bcrypt.hash('qwerty@123', 12);
+      const josephHash = await bcrypt.hash('joseph123', 12);
+      db.run(`INSERT OR IGNORE INTO users (email,password_hash,name,role,active,profile_complete) VALUES (?,?,?,?,1,1)`,
+        ['Test@admin.com', adminHash, 'Admin', 'admin']);
+      db.run(`INSERT OR IGNORE INTO users (email,password_hash,name,role,active,profile_complete) VALUES (?,?,?,?,1,1)`,
+        ['joseph@astraterra.ae', josephHash, 'Joseph Toubia', 'owner']);
+      console.log('✅ [DB] Default admin users seeded.');
+    });
+  } catch(e) { console.error('[DB Seed Error]', e.message); }
+}, 2000);
 
 for (const sql of migrations) {
   db.run(sql, (err) => {
