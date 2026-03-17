@@ -292,3 +292,78 @@ module.exports = {
   getClient,
   db,
 };
+
+// ─── Column migration: safely add missing columns to existing tables ──────────
+setTimeout(() => {
+  const alterStatements = [
+    // contacts missing columns
+    `ALTER TABLE contacts ADD COLUMN nationality TEXT`,
+    `ALTER TABLE contacts ADD COLUMN language TEXT`,
+    `ALTER TABLE contacts ADD COLUMN type TEXT DEFAULT 'buyer'`,
+    `ALTER TABLE contacts ADD COLUMN location_preference TEXT`,
+    `ALTER TABLE contacts ADD COLUMN budget_min REAL`,
+    `ALTER TABLE contacts ADD COLUMN budget_max REAL`,
+    `ALTER TABLE contacts ADD COLUMN property_type TEXT`,
+    `ALTER TABLE contacts ADD COLUMN bedrooms TEXT`,
+    `ALTER TABLE contacts ADD COLUMN purpose TEXT`,
+    `ALTER TABLE contacts ADD COLUMN timeline TEXT`,
+    `ALTER TABLE contacts ADD COLUMN must_haves TEXT`,
+    `ALTER TABLE contacts ADD COLUMN nice_to_haves TEXT`,
+    `ALTER TABLE contacts ADD COLUMN source TEXT`,
+    `ALTER TABLE contacts ADD COLUMN source_details TEXT`,
+    `ALTER TABLE contacts ADD COLUMN lead_source TEXT`,
+    `ALTER TABLE contacts ADD COLUMN lead_source_status TEXT`,
+    `ALTER TABLE contacts ADD COLUMN lead_pool INTEGER DEFAULT 0`,
+    `ALTER TABLE contacts ADD COLUMN tags TEXT`,
+    `ALTER TABLE contacts ADD COLUMN assigned_to INTEGER`,
+    `ALTER TABLE contacts ADD COLUMN assigned_agent TEXT`,
+    `ALTER TABLE contacts ADD COLUMN assigned_agent_id INTEGER`,
+    `ALTER TABLE contacts ADD COLUMN last_contacted TEXT`,
+    `ALTER TABLE contacts ADD COLUMN next_follow_up TEXT`,
+    // properties missing columns
+    `ALTER TABLE properties ADD COLUMN property_id TEXT`,
+    `ALTER TABLE properties ADD COLUMN type TEXT`,
+    `ALTER TABLE properties ADD COLUMN assigned_to INTEGER`,
+    `ALTER TABLE properties ADD COLUMN owner_email TEXT`,
+    `ALTER TABLE properties ADD COLUMN owner_id INTEGER`,
+    `ALTER TABLE properties ADD COLUMN floor TEXT`,
+    `ALTER TABLE properties ADD COLUMN unit_number TEXT`,
+    `ALTER TABLE properties ADD COLUMN floor_plan TEXT`,
+    `ALTER TABLE properties ADD COLUMN video_url TEXT`,
+    `ALTER TABLE properties ADD COLUMN rera_number TEXT`,
+    `ALTER TABLE properties ADD COLUMN views INTEGER DEFAULT 0`,
+    // leads missing columns
+    `ALTER TABLE leads ADD COLUMN contact_id INTEGER`,
+    `ALTER TABLE leads ADD COLUMN source_url TEXT`,
+    `ALTER TABLE leads ADD COLUMN source_channel TEXT`,
+    `ALTER TABLE leads ADD COLUMN stage TEXT DEFAULT 'new_lead'`,
+    `ALTER TABLE leads ADD COLUMN pipeline_stage TEXT DEFAULT 'new_lead'`,
+    `ALTER TABLE leads ADD COLUMN lead_type TEXT DEFAULT 'buyer'`,
+    `ALTER TABLE leads ADD COLUMN score INTEGER DEFAULT 50`,
+    `ALTER TABLE leads ADD COLUMN requirements TEXT`,
+    `ALTER TABLE leads ADD COLUMN assigned_agent TEXT`,
+    `ALTER TABLE leads ADD COLUMN currency TEXT DEFAULT 'AED'`,
+    `ALTER TABLE leads ADD COLUMN tags TEXT`,
+    `ALTER TABLE leads ADD COLUMN whatsapp_number TEXT`,
+    `ALTER TABLE leads ADD COLUMN next_followup_date TEXT`,
+    // users missing columns (for profile page)
+    `ALTER TABLE users ADD COLUMN rera_number TEXT`,
+    `ALTER TABLE users ADD COLUMN specialty TEXT`,
+    `ALTER TABLE users ADD COLUMN total_transactions INTEGER DEFAULT 0`,
+    `ALTER TABLE users ADD COLUMN transactions_count INTEGER DEFAULT 0`,
+    `ALTER TABLE users ADD COLUMN about TEXT`,
+    `ALTER TABLE users ADD COLUMN avatar_url TEXT`,
+    `ALTER TABLE users ADD COLUMN team_id INTEGER`,
+    `ALTER TABLE users ADD COLUMN commission_rate REAL DEFAULT 0`,
+    `ALTER TABLE users ADD COLUMN profile_complete INTEGER DEFAULT 0`,
+    `ALTER TABLE users ADD COLUMN reset_token TEXT`,
+    `ALTER TABLE users ADD COLUMN reset_token_expires TEXT`,
+  ];
+
+  alterStatements.forEach(sql => {
+    db.run(sql, err => {
+      // Ignore "duplicate column" errors — expected on subsequent runs
+    });
+  });
+  console.log('[DB] Column migrations applied');
+}, 1500);
