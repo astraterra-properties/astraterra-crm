@@ -18,8 +18,8 @@ const fs = require('fs');
 const path = require('path');
 
 // ─── Config ────────────────────────────────────────────────────────────────
-const BOT_TOKEN = '8301233584:AAFlAVIrtEm6oAiSzsj93ADHlat-Z4JpW3U';
-const JOSEPH_CHAT_ID = '8117376630';
+const BOT_TOKEN = '${process.env.TELEGRAM_BOT_TOKEN}';
+const JOSEPH_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '8117376630';
 const CRM_URL = 'http://localhost:3001/api/health';
 const CRM_FRONTEND_URL = 'http://localhost:3000';
 const HEALTH_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
