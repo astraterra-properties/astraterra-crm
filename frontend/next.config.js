@@ -1,16 +1,18 @@
 /** @type {import('next').NextConfig} */
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
 const nextConfig = {
   reactStrictMode: true,
   env: {
-    API_URL: process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://localhost:3001',
+    API_URL: BACKEND_URL,
   },
   async rewrites() {
     return [
       {
         // Proxy all /api/* to the backend (Next.js internal routes like /api/cloudinary take priority)
         source: '/api/:path*',
-        destination: 'http://localhost:3001/api/:path*',
+        destination: `${BACKEND_URL}/api/:path*`,
       },
       {
         // Landscape AI proxy
