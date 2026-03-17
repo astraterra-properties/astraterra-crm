@@ -246,7 +246,7 @@ router.get('/:id', async (req, res) => {
       FROM leads l
       LEFT JOIN contacts c ON l.contact_id = c.id
       LEFT JOIN users u ON l.assigned_to = u.id
-      WHERE l.id = $1
+      WHERE l.id = ?
     `, [id]);
 
     if (result.rows.length === 0) {
@@ -303,7 +303,7 @@ router.post('/', async (req, res) => {
         score, pipeline_stage, lead_type, tags, source_channel,
         whatsapp_number, next_followup_date
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `, [
       contact_id,
@@ -368,7 +368,7 @@ router.put('/:id', async (req, res) => {
     } = req.body;
 
     // ── 1. Get the lead's contact_id ──────────────────────────────────
-    const leadRow = await query('SELECT contact_id FROM leads WHERE id = $1', [id]);
+    const leadRow = await query('SELECT contact_id FROM leads WHERE id = ?', [id]);
     if (!leadRow.rows.length) {
       return res.status(404).json({ error: 'Lead not found' });
     }
@@ -437,7 +437,7 @@ router.put('/:id', async (req, res) => {
     // ── 4. Auto-pool: if stage moved to 'lost', add contact to lead pool ──
     if (pipeline_stage === 'lost' && contactId) {
       await query(
-        `UPDATE contacts SET lead_pool = 1, updated_at = datetime('now') WHERE id = $1`,
+        `UPDATE contacts SET lead_pool = 1, updated_at = datetime('now') WHERE id = ?`,
         [contactId]
       );
     }
@@ -459,7 +459,7 @@ router.put('/:id', async (req, res) => {
              c.property_type
       FROM leads l
       LEFT JOIN contacts c ON l.contact_id = c.id
-      WHERE l.id = $1
+      WHERE l.id = ?
     `, [id]);
 
     res.json(fullLead.rows[0] || result.rows[0]);
@@ -477,7 +477,7 @@ router.delete('/:id', requireMinRole('admin'), async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await query('DELETE FROM leads WHERE id = $1 RETURNING id', [id]);
+    const result = await query('DELETE FROM leads WHERE id = ? RETURNING id', [id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Lead not found' });
@@ -616,7 +616,7 @@ async function uploadLeadDocToCloudinary(filePath, originalName, folder) {
 router.get('/:id/documents', async (req, res) => {
   try {
     const result = await query(
-      `SELECT * FROM documents WHERE entity_type = 'lead' AND entity_id = $1 ORDER BY created_at DESC`,
+      `SELECT * FROM documents WHERE entity_type = 'lead' AND entity_id = ? ORDER BY created_at DESC`,
       [req.params.id]
     );
     res.json({ success: true, documents: result.rows });
@@ -640,7 +640,7 @@ router.post('/:id/documents', leadDocUpload.single('file'), async (req, res) => 
     const leadResult = await query(
       `SELECT l.id, c.name AS contact_name, l.whatsapp_number
        FROM leads l LEFT JOIN contacts c ON l.contact_id = c.id
-       WHERE l.id = $1`,
+       WHERE l.id = ?`,
       [leadId]
     );
     if (!leadResult.rows.length) return res.status(404).json({ error: 'Lead not found' });
@@ -661,7 +661,7 @@ router.post('/:id/documents', leadDocUpload.single('file'), async (req, res) => 
         (name, original_name, category, entity_type, entity_id, entity_name,
          drive_file_id, drive_view_link, drive_download_link, drive_folder_id,
          file_size, mime_type, notes, uploaded_by)
-       VALUES ($1, $2, $3, 'lead', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       VALUES (?, ?, ?, 'lead', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING id`,
       [
         req.file.originalname,
@@ -710,7 +710,7 @@ router.post('/:id/documents', leadDocUpload.single('file'), async (req, res) => 
 router.delete('/:id/documents/:docId', async (req, res) => {
   try {
     const result = await query(
-      `SELECT * FROM documents WHERE id = $1 AND entity_type = 'lead' AND entity_id = $2`,
+      `SELECT * FROM documents WHERE id = ? AND entity_type = 'lead' AND entity_id = ?`,
       [req.params.docId, req.params.id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Document not found' });
@@ -732,7 +732,7 @@ router.delete('/:id/documents/:docId', async (req, res) => {
       }
     } catch (_) {}
 
-    await query('DELETE FROM documents WHERE id = $1', [req.params.docId]);
+    await query('DELETE FROM documents WHERE id = ?', [req.params.docId]);
     res.json({ success: true });
   } catch (err) {
     console.error('Lead document delete error:', err.message);

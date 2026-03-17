@@ -20,7 +20,7 @@ router.get('/stats', async (req, res) => {
     const { assigned_to } = req.query;
 
     // Build WHERE clause for filtering by agent
-    const whereClause = assigned_to ? 'WHERE assigned_to = $1' : '';
+    const whereClause = assigned_to ? 'WHERE assigned_to = ?' : '';
     const params = assigned_to ? [assigned_to] : [];
 
     // Get all stats in parallel
@@ -66,7 +66,7 @@ router.get('/stats', async (req, res) => {
           COALESCE(SUM(CASE WHEN status = 'completed' THEN deal_value ELSE 0 END), 0) as total_revenue,
           COALESCE(SUM(CASE WHEN status = 'completed' AND actual_close_date >= date('now', '-30 days') THEN deal_value ELSE 0 END), 0) as revenue_this_month
         FROM deals
-        ${assigned_to ? 'WHERE agent_id = $1' : ''}
+        ${assigned_to ? 'WHERE agent_id = ?' : ''}
       `, params),
 
       // Viewings stats
@@ -76,7 +76,7 @@ router.get('/stats', async (req, res) => {
           SUM(CASE WHEN scheduled_at >= datetime('now') THEN 1 ELSE 0 END) as upcoming,
           SUM(CASE WHEN scheduled_at >= date('now') AND scheduled_at < date('now', '+1 day') THEN 1 ELSE 0 END) as today
         FROM viewings
-        ${assigned_to ? 'WHERE agent_id = $1' : ''}
+        ${assigned_to ? 'WHERE agent_id = ?' : ''}
       `, params)
     ]);
 
@@ -136,7 +136,7 @@ router.get('/activity', async (req, res) => {
       FROM activity_log al
       LEFT JOIN users u ON al.user_id = u.id
       ORDER BY al.created_at DESC
-      LIMIT $1
+      LIMIT ?
     `, [limit]);
 
     res.json(result.rows);
@@ -154,7 +154,7 @@ router.get('/recent-leads', async (req, res) => {
   try {
     const { limit = 10, assigned_to } = req.query;
 
-    const whereClause = assigned_to ? 'WHERE l.assigned_to = $2' : '';
+    const whereClause = assigned_to ? 'WHERE l.assigned_to = ?' : '';
     const params = assigned_to ? [limit, assigned_to] : [limit];
 
     const result = await query(`
@@ -172,7 +172,7 @@ router.get('/recent-leads', async (req, res) => {
       LEFT JOIN users u ON l.assigned_to = u.id
       ${whereClause}
       ORDER BY l.created_at DESC
-      LIMIT $1
+      LIMIT ?
     `, params);
 
     res.json(result.rows);
@@ -190,7 +190,7 @@ router.get('/upcoming-tasks', async (req, res) => {
   try {
     const { assigned_to } = req.query;
 
-    const whereClause = assigned_to ? 'WHERE t.assigned_to = $1' : '';
+    const whereClause = assigned_to ? 'WHERE t.assigned_to = ?' : '';
     const params = assigned_to ? [assigned_to] : [];
 
     const result = await query(`
@@ -227,7 +227,7 @@ router.get('/upcoming-viewings', async (req, res) => {
   try {
     const { assigned_to } = req.query;
 
-    const whereClause = assigned_to ? 'WHERE v.agent_id = $1 AND ' : 'WHERE ';
+    const whereClause = assigned_to ? 'WHERE v.agent_id = ? AND ' : 'WHERE ';
     const params = assigned_to ? [assigned_to] : [];
 
     const result = await query(`
@@ -264,7 +264,7 @@ router.get('/performance', async (req, res) => {
   try {
     const { period = '30', assigned_to } = req.query;
 
-    const whereClause = assigned_to ? 'WHERE agent_id = $2' : '';
+    const whereClause = assigned_to ? 'WHERE agent_id = ?' : '';
     const params = assigned_to ? [period, assigned_to] : [period];
 
     const [conversionRate, avgDealTime, topAgents] = await Promise.all([

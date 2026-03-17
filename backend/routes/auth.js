@@ -37,7 +37,7 @@ router.post('/register', async (req, res) => {
 
     // Check if user already exists
     const existingUser = await query(
-      'SELECT id FROM users WHERE email = $1',
+      'SELECT id FROM users WHERE email = ?',
       [email]
     );
 
@@ -52,7 +52,7 @@ router.post('/register', async (req, res) => {
     // Create user
     const result = await query(`
       INSERT INTO users (email, password_hash, name, phone, role, active)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      VALUES (?, ?, ?, ?, ?, ?)
       RETURNING id, email, name, role, created_at
     `, [email, password_hash, name, phone, role, true]);
 
@@ -96,7 +96,7 @@ router.post('/login', async (req, res) => {
 
     // Get user from database
     const result = await query(
-      'SELECT * FROM users WHERE email = $1',
+      'SELECT * FROM users WHERE email = ?',
       [email]
     );
 
@@ -120,7 +120,7 @@ router.post('/login', async (req, res) => {
 
     // Update last login
     await query(
-      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
+      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?',
       [user.id]
     );
 
@@ -181,7 +181,7 @@ router.get('/me', authenticateToken, async (req, res) => {
         commission_rate, avatar_url, active, last_login, created_at,
         rera_number, specialty, transactions_count, about, profile_complete
       FROM users 
-      WHERE id = $1
+      WHERE id = ?
     `, [req.user.id]);
 
     if (result.rows.length === 0) {
@@ -267,7 +267,7 @@ router.put('/profile', authenticateToken, async (req, res) => {
 
     // Auto-compute profile_complete: required fields must be non-empty
     // We need current values to check — fetch them first
-    const current = await query(`SELECT * FROM users WHERE id = $1`, [req.user.id]);
+    const current = await query(`SELECT * FROM users WHERE id = ?`, [req.user.id]);
     const cur = current.rows[0] || {};
     const merged = {
       name: name !== undefined ? name : cur.name,
@@ -343,7 +343,7 @@ router.post('/change-password', authenticateToken, async (req, res) => {
 
     // Get current password hash
     const result = await query(
-      'SELECT password_hash FROM users WHERE id = $1',
+      'SELECT password_hash FROM users WHERE id = ?',
       [req.user.id]
     );
 
@@ -362,7 +362,7 @@ router.post('/change-password', authenticateToken, async (req, res) => {
 
     // Update password
     await query(
-      'UPDATE users SET password_hash = $1 WHERE id = $2',
+      'UPDATE users SET password_hash = ? WHERE id = ?',
       [new_password_hash, req.user.id]
     );
 
@@ -435,7 +435,7 @@ router.post('/avatar', authenticateToken, avatarUpload.single('avatar'), async (
     if (!upload.ok) throw new Error(data.error?.message || 'Upload failed');
 
     // Save avatar_url on user
-    await query(`UPDATE users SET avatar_url = $1 WHERE id = $2`, [data.secure_url, req.user.id]);
+    await query(`UPDATE users SET avatar_url = ? WHERE id = ?`, [data.secure_url, req.user.id]);
     res.json({ success: true, avatar_url: data.secure_url });
   } catch (err) {
     console.error('Avatar upload error:', err);
@@ -469,7 +469,7 @@ router.post('/forgot-password', async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email is required' });
 
-    const result = await query('SELECT id, email, name FROM users WHERE email = $1', [email]);
+    const result = await query('SELECT id, email, name FROM users WHERE email = ?', [email]);
     // Always return 200 to avoid user enumeration
     if (result.rows.length === 0) {
       return res.json({ message: 'If that email exists, a reset link has been sent.' });
@@ -482,7 +482,7 @@ router.post('/forgot-password', async (req, res) => {
 
     // Store token in DB
     await query(
-      'UPDATE users SET reset_token = $1, reset_token_expires = $2 WHERE id = $3',
+      'UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?',
       [token, expires, user.id]
     );
 
@@ -547,7 +547,7 @@ router.post('/reset-password', async (req, res) => {
     if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
     const result = await query(
-      "SELECT id, email, name, reset_token_expires FROM users WHERE reset_token = $1",
+      "SELECT id, email, name, reset_token_expires FROM users WHERE reset_token = ?",
       [token]
     );
 
@@ -565,7 +565,7 @@ router.post('/reset-password', async (req, res) => {
     const password_hash = await bcrypt.hash(password, 12);
 
     await query(
-      "UPDATE users SET password_hash = $1, reset_token = NULL, reset_token_expires = NULL WHERE id = $2",
+      "UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?",
       [password_hash, user.id]
     );
 

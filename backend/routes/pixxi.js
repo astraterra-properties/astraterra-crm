@@ -163,9 +163,9 @@ router.post('/config', authenticateToken, async (req, res) => {
     // Persist to config table
     const existing = await query(`SELECT id FROM pixxi_config LIMIT 1`);
     if (existing.rows.length) {
-      await query(`UPDATE pixxi_config SET token = $1, updated_at = datetime('now') WHERE id = $2`, [token, existing.rows[0].id]);
+      await query(`UPDATE pixxi_config SET token = ?, updated_at = datetime('now') WHERE id = ?`, [token, existing.rows[0].id]);
     } else {
-      await query(`INSERT INTO pixxi_config (token) VALUES ($1)`, [token]);
+      await query(`INSERT INTO pixxi_config (token) VALUES (?)`, [token]);
     }
 
     // Also write to .env file for persistence across restarts
@@ -253,7 +253,7 @@ router.post('/sync/properties', authenticateToken, async (req, res) => {
                 status, handover_time, position, permit_number,
                 pixxi_created_at, pixxi_updated_at, synced_at
               ) VALUES (
-                $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,datetime('now')
+                ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now')
               )
               ON CONFLICT(pixxi_id) DO UPDATE SET
                 pixxi_property_id=excluded.pixxi_property_id, title=excluded.title,
@@ -288,18 +288,18 @@ router.post('/sync/properties', authenticateToken, async (req, res) => {
                             propertyType.toLowerCase().includes('villa') ? 'villa' :
                             propertyType.toLowerCase().includes('townhouse') ? 'townhouse' : 'apartment';
 
-              const mainExists = await query(`SELECT id FROM properties WHERE pixxi_id = $1`, [prop.id]);
+              const mainExists = await query(`SELECT id FROM properties WHERE pixxi_id = ?`, [prop.id]);
               if (mainExists.rows.length) {
                 await query(`UPDATE properties SET
-                  title=$1, type=$2, location=$3, price=$4, bedrooms=$5, purpose=$6,
-                  description=$7, photos=$8, status=$9, pixxi_id=$10
-                  WHERE pixxi_id=$10`,
+                  title=?, type=?, location=?, price=?, bedrooms=?, purpose=?,
+                  description=?, photos=?, status=?, pixxi_id=?
+                  WHERE pixxi_id=?`,
                   [prop.title, ptype, prop.region || prop.cityName, prop.price, prop.bedRooms, purpose,
                    prop.description, photos, prop.status || 'available', prop.id]);
               } else {
                 await query(`INSERT INTO properties
                   (property_id, title, type, location, price, bedrooms, purpose, description, photos, status, pixxi_id, listed_date)
-                  VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,datetime('now'))`,
+                  VALUES (?,?,?,?,?,?,?,?,?,?,?,datetime('now'))`,
                   [propId, prop.title, ptype, prop.region || prop.cityName, prop.price, prop.bedRooms,
                    purpose, prop.description, photos, prop.status || 'available', prop.id]);
               }
@@ -321,12 +321,12 @@ router.post('/sync/properties', authenticateToken, async (req, res) => {
     await query(`UPDATE pixxi_config SET last_properties_sync = datetime('now'), updated_at = datetime('now') WHERE id = (SELECT id FROM pixxi_config LIMIT 1)`);
 
     // Log sync
-    await query(`INSERT INTO sync_log (sync_type, records_synced, errors, status) VALUES ('properties', $1, $2, $3)`,
+    await query(`INSERT INTO sync_log (sync_type, records_synced, errors, status) VALUES ('properties', ?, ?, ?)`,
       [totalSynced, totalErrors, totalErrors > 0 ? 'partial' : 'success']);
 
     res.json({ success: true, synced: totalSynced, errors: totalErrors, duration: Date.now() - startTime });
   } catch (err) {
-    await query(`INSERT INTO sync_log (sync_type, records_synced, errors, status, error_message) VALUES ('properties', $1, $2, 'error', $3)`,
+    await query(`INSERT INTO sync_log (sync_type, records_synced, errors, status, error_message) VALUES ('properties', ?, ?, 'error', ?)`,
       [totalSynced, totalErrors, err.message]).catch(() => {});
     res.status(500).json({ error: err.message, synced: totalSynced });
   }
@@ -374,7 +374,7 @@ router.post('/sync/leads', authenticateToken, async (req, res) => {
           // Upsert pixxi_leads
           await query(`
             INSERT INTO pixxi_leads (pixxi_id, name, phone, email, status, client_type, source, notes, agent_name, created_at_pixxi, updated_at_pixxi)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(pixxi_id) DO UPDATE SET
               name=excluded.name, phone=excluded.phone, email=excluded.email, status=excluded.status,
               client_type=excluded.client_type, source=excluded.source, notes=excluded.notes,
@@ -384,18 +384,18 @@ router.post('/sync/leads', authenticateToken, async (req, res) => {
 
           // Upsert into main contacts table
           try {
-            const existing = await query(`SELECT id FROM contacts WHERE pixxi_id = $1`, [leadId]);
+            const existing = await query(`SELECT id FROM contacts WHERE pixxi_id = ?`, [leadId]);
             if (existing.rows.length) {
-              await query(`UPDATE contacts SET name=$1, phone=$2, email=$3, status=$4, source=$5, notes=$6, pixxi_id=$7 WHERE pixxi_id=$7`,
+              await query(`UPDATE contacts SET name=?, phone=?, email=?, status=?, source=?, notes=?, pixxi_id=? WHERE pixxi_id=?`,
                 [name, phone, email, status === 'active' ? 'active' : 'new', source, notes, leadId]);
             } else {
               // Check by phone to avoid duplicates
-              const byPhone = phone ? await query(`SELECT id FROM contacts WHERE phone = $1 LIMIT 1`, [phone]) : { rows: [] };
+              const byPhone = phone ? await query(`SELECT id FROM contacts WHERE phone = ? LIMIT 1`, [phone]) : { rows: [] };
               if (byPhone.rows.length) {
-                await query(`UPDATE contacts SET pixxi_id=$1 WHERE id=$2`, [leadId, byPhone.rows[0].id]);
+                await query(`UPDATE contacts SET pixxi_id=? WHERE id=?`, [leadId, byPhone.rows[0].id]);
               } else {
                 await query(`INSERT INTO contacts (name, phone, email, type, source, notes, status, pixxi_id)
-                  VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+                  VALUES (?,?,?,?,?,?,?,?)`,
                   [name, phone, email, clientType === 'seller' ? 'seller' : 'buyer', source, notes, 'new', leadId]);
               }
             }
@@ -413,12 +413,12 @@ router.post('/sync/leads', authenticateToken, async (req, res) => {
     }
 
     await query(`UPDATE pixxi_config SET last_leads_sync = datetime('now'), updated_at = datetime('now') WHERE id = (SELECT id FROM pixxi_config LIMIT 1)`);
-    await query(`INSERT INTO sync_log (sync_type, records_synced, errors, status) VALUES ('leads', $1, $2, $3)`,
+    await query(`INSERT INTO sync_log (sync_type, records_synced, errors, status) VALUES ('leads', ?, ?, ?)`,
       [totalSynced, totalErrors, totalErrors > 0 ? 'partial' : 'success']);
 
     res.json({ success: true, synced: totalSynced, errors: totalErrors, duration: Date.now() - startTime });
   } catch (err) {
-    await query(`INSERT INTO sync_log (sync_type, records_synced, errors, status, error_message) VALUES ('leads', $1, $2, 'error', $3)`,
+    await query(`INSERT INTO sync_log (sync_type, records_synced, errors, status, error_message) VALUES ('leads', ?, ?, 'error', ?)`,
       [totalSynced, totalErrors, err.message]).catch(() => {});
     res.status(500).json({ error: err.message, synced: totalSynced });
   }
@@ -439,9 +439,9 @@ router.post('/sync/developers', authenticateToken, async (req, res) => {
         const name = dev.name || dev.developerName || '';
         const logo = dev.logo || dev.logoUrl || dev.developerLogo || '';
 
-        const existing = await query(`SELECT id FROM developers WHERE name = $1 LIMIT 1`, [name]);
+        const existing = await query(`SELECT id FROM developers WHERE name = ? LIMIT 1`, [name]);
         if (!existing.rows.length && name) {
-          await query(`INSERT INTO developers (name, logo_url, status) VALUES ($1, $2, 'active')
+          await query(`INSERT INTO developers (name, logo_url, status) VALUES (?, ?, 'active')
 `, [name, logo]);
         }
         totalSynced++;
@@ -449,7 +449,7 @@ router.post('/sync/developers', authenticateToken, async (req, res) => {
     }
 
     await query(`UPDATE pixxi_config SET last_developers_sync = datetime('now'), updated_at = datetime('now') WHERE id = (SELECT id FROM pixxi_config LIMIT 1)`);
-    await query(`INSERT INTO sync_log (sync_type, records_synced, errors, status) VALUES ('developers', $1, 0, 'success')`, [totalSynced]);
+    await query(`INSERT INTO sync_log (sync_type, records_synced, errors, status) VALUES ('developers', ?, 0, 'success')`, [totalSynced]);
 
     res.json({ success: true, synced: totalSynced, errors: 0, duration: Date.now() - startTime });
   } catch (err) {
@@ -475,9 +475,9 @@ router.post('/sync/agents', authenticateToken, async (req, res) => {
         const phone = agent.phone || agent.mobile || '';
 
         if (email) {
-          const existing = await query(`SELECT id FROM users WHERE email = $1 LIMIT 1`, [email]);
+          const existing = await query(`SELECT id FROM users WHERE email = ? LIMIT 1`, [email]);
           if (!existing.rows.length) {
-            await query(`INSERT INTO users (name, email, phone, role, status) VALUES ($1,$2,$3,'agent','active')
+            await query(`INSERT INTO users (name, email, phone, role, status) VALUES (?,?,?,'agent','active')
 `, [name, email, phone]);
           }
         }
@@ -486,7 +486,7 @@ router.post('/sync/agents', authenticateToken, async (req, res) => {
     }
 
     await query(`UPDATE pixxi_config SET last_agents_sync = datetime('now'), updated_at = datetime('now') WHERE id = (SELECT id FROM pixxi_config LIMIT 1)`);
-    await query(`INSERT INTO sync_log (sync_type, records_synced, errors, status) VALUES ('agents', $1, 0, 'success')`, [totalSynced]);
+    await query(`INSERT INTO sync_log (sync_type, records_synced, errors, status) VALUES ('agents', ?, 0, 'success')`, [totalSynced]);
 
     res.json({ success: true, synced: totalSynced, errors: 0, duration: Date.now() - startTime });
   } catch (err) {
@@ -547,7 +547,7 @@ router.post('/webhook/setup', authenticateToken, async (req, res) => {
   }
 
   const allOk = results.every(r => r.success);
-  await query(`UPDATE pixxi_config SET webhook_subscribed = $1, updated_at = datetime('now') WHERE id = (SELECT id FROM pixxi_config LIMIT 1)`,
+  await query(`UPDATE pixxi_config SET webhook_subscribed = ?, updated_at = datetime('now') WHERE id = (SELECT id FROM pixxi_config LIMIT 1)`,
     [allOk ? 1 : 0]);
 
   res.json({ success: allOk, results });
@@ -574,18 +574,18 @@ router.post('/webhook/receive', async (req, res) => {
         try {
           await query(`
             INSERT INTO pixxi_leads (pixxi_id, name, phone, email, status, source, synced_at)
-            VALUES ($1,$2,$3,$4,$5,$6,datetime('now'))
+            VALUES (?,?,?,?,?,?,datetime('now'))
             ON CONFLICT(pixxi_id) DO UPDATE SET
-              name=$2, phone=$3, email=$4, status=$5, synced_at=datetime('now')
+              name=?, phone=?, email=?, status=?, synced_at=datetime('now')
           `, [leadId, name, phone, email, status, source]);
 
           // Upsert main contacts
-          const existing = await query(`SELECT id FROM contacts WHERE pixxi_id = $1 LIMIT 1`, [leadId]);
+          const existing = await query(`SELECT id FROM contacts WHERE pixxi_id = ? LIMIT 1`, [leadId]);
           if (existing.rows.length) {
-            await query(`UPDATE contacts SET name=$1, phone=$2, email=$3, status=$4 WHERE pixxi_id=$5`,
+            await query(`UPDATE contacts SET name=?, phone=?, email=?, status=? WHERE pixxi_id=?`,
               [name, phone, email, 'new', leadId]);
           } else {
-            await query(`INSERT INTO contacts (name, phone, email, type, source, status, pixxi_id) VALUES ($1,$2,$3,'buyer',$4,'new',$5)`,
+            await query(`INSERT INTO contacts (name, phone, email, type, source, status, pixxi_id) VALUES (?,?,?,'buyer',?,'new',?)`,
               [name, phone, email, source, leadId]);
           }
         } catch (e) { console.error('Webhook lead upsert error:', e.message); }
@@ -603,9 +603,9 @@ router.post('/webhook/receive', async (req, res) => {
 
           await query(`
             INSERT INTO pixxi_properties (pixxi_id, pixxi_property_id, title, listing_type, property_type, price, bedrooms, photos, status, synced_at)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,datetime('now'))
+            VALUES (?,?,?,?,?,?,?,?,?,datetime('now'))
             ON CONFLICT(pixxi_id) DO UPDATE SET
-              title=$3, price=$6, status=$9, synced_at=datetime('now')
+              title=?, price=?, status=?, synced_at=datetime('now')
           `, [prop.id, prop.propertyId, prop.title, prop.listingType, propertyType, prop.price, prop.bedRooms, photos, prop.status]);
         } catch (e) { console.error('Webhook property upsert error:', e.message); }
       }

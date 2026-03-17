@@ -23,7 +23,7 @@ router.post('/leads/inbound', async (req, res) => {
       const searchField = phone ? 'phone' : 'email';
       const searchValue = phone || email;
       const existing = await query(
-        `SELECT * FROM contacts WHERE ${searchField} = $1 LIMIT 1`,
+        `SELECT * FROM contacts WHERE ${searchField} = ? LIMIT 1`,
         [searchValue]
       );
 
@@ -33,7 +33,7 @@ router.post('/leads/inbound', async (req, res) => {
         // Create new contact
         const newContact = await query(`
           INSERT INTO contacts (name, phone, email, type, source, notes)
-          VALUES ($1, $2, $3, 'buyer', $4, $5)
+          VALUES (?, ?, ?, 'buyer', ?, ?)
           RETURNING *
         `, [name || 'Unknown', phone, email, source || channel, message || '']);
         contact = newContact.rows[0];
@@ -45,14 +45,14 @@ router.post('/leads/inbound', async (req, res) => {
     // Create lead
     const lead = await query(`
       INSERT INTO leads (contact_id, status, priority, source, notes, pipeline_stage, source_channel)
-      VALUES ($1, 'not_contacted', 'medium', $2, $3, 'new_lead', $4)
+      VALUES (?, 'not_contacted', 'medium', ?, ?, 'new_lead', ?)
       RETURNING *
     `, [contact.id, source || channel, message || '', channel]);
 
     // Log activity
     await query(`
       INSERT INTO lead_activity (contact_id, lead_id, channel, activity_type, description, metadata)
-      VALUES ($1, $2, $3, 'inbound_lead', $4, $5)
+      VALUES (?, ?, ?, 'inbound_lead', ?, ?)
     `, [contact.id, lead.rows[0].id, channel, `New inbound lead from ${source || channel}`, JSON.stringify(req.body)]);
 
     const isWebsiteLead = channel === 'website' || source === 'Newsletter Signup' || source === 'Contact Form'
@@ -75,7 +75,7 @@ router.post('/leads/inbound', async (req, res) => {
       const sourceLabel = source || channel || 'Website';
       query(`
         INSERT INTO notifications (type, icon, title, body, link, meta, is_read)
-        VALUES ('lead', '🌐', $1, $2, '/pipeline', $3, 0)
+        VALUES ('lead', '🌐', ?, ?, '/pipeline', ?, 0)
       `, [
         `New lead from ${sourceLabel}`,
         `${displayName} just signed up via your website${message ? ` — "${message.substring(0, 80)}..."` : ''}`,
@@ -105,7 +105,7 @@ router.get('/:contactId', async (req, res) => {
       SELECT la.*, u.name as created_by_name
       FROM lead_activity la
       LEFT JOIN users u ON la.created_by = u.id
-      WHERE la.contact_id = $1
+      WHERE la.contact_id = ?
       ORDER BY la.created_at DESC
       LIMIT 100
     `, [req.params.contactId]);
@@ -130,7 +130,7 @@ router.post('/', async (req, res) => {
 
     const result = await query(`
       INSERT INTO lead_activity (contact_id, lead_id, channel, activity_type, description, metadata, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `, [contact_id, lead_id, channel, activity_type, description, metadataStr, req.user.id]);
 

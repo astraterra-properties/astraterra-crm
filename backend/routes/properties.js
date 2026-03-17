@@ -162,7 +162,7 @@ router.get('/:id', async (req, res) => {
         u.email as assigned_to_email
       FROM properties p
       LEFT JOIN users u ON p.assigned_to = u.id
-      WHERE p.id = $1 OR p.property_id = $1
+      WHERE p.id = ? OR p.property_id = ?
     `, [id]);
 
     if (result.rows.length === 0) {
@@ -177,7 +177,7 @@ router.get('/:id', async (req, res) => {
         c.phone as contact_phone
       FROM viewings v
       LEFT JOIN contacts c ON v.contact_id = c.id
-      WHERE v.property_id = $1
+      WHERE v.property_id = ?
       ORDER BY v.scheduled_at DESC
     `, [result.rows[0].id]);
 
@@ -190,7 +190,7 @@ router.get('/:id', async (req, res) => {
         c.email as contact_email
       FROM property_matches pm
       LEFT JOIN contacts c ON pm.contact_id = c.id
-      WHERE pm.property_id = $1 AND pm.match_score >= 50
+      WHERE pm.property_id = ? AND pm.match_score >= 50
       ORDER BY pm.match_score DESC
       LIMIT 10
     `, [result.rows[0].id]);
@@ -253,7 +253,7 @@ router.post('/', requireMinRole('admin'), async (req, res) => {
         description, key_features, photos, documents, status,
         assigned_to, listed_date
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `, [
       property_id,
@@ -350,7 +350,7 @@ router.delete('/:id', requireMinRole('owner'), async (req, res) => {
 
     // Check for related deals
     const dealsCheck = await query(
-      'SELECT COUNT(*) FROM deals WHERE property_id = (SELECT id FROM properties WHERE id = $1 OR property_id = $1)',
+      'SELECT COUNT(*) FROM deals WHERE property_id = (SELECT id FROM properties WHERE id = ? OR property_id = ?)',
       [id]
     );
     
@@ -361,7 +361,7 @@ router.delete('/:id', requireMinRole('owner'), async (req, res) => {
     }
 
     const result = await query(
-      'DELETE FROM properties WHERE id = $1 OR property_id = $1 RETURNING id',
+      'DELETE FROM properties WHERE id = ? OR property_id = ? RETURNING id',
       [id]
     );
 
@@ -386,7 +386,7 @@ router.post('/:id/match', async (req, res) => {
 
     // Get property details
     const propResult = await query(`
-      SELECT * FROM properties WHERE id = $1 OR property_id = $1
+      SELECT * FROM properties WHERE id = ? OR property_id = ?
     `, [id]);
 
     if (propResult.rows.length === 0) {
@@ -401,20 +401,20 @@ router.post('/:id/match', async (req, res) => {
         c.*,
         (
           CASE 
-            WHEN c.budget_min <= $1 AND c.budget_max >= $1 THEN 40
-            WHEN c.budget_max >= $1 * 0.8 THEN 20
+            WHEN c.budget_min <= ? AND c.budget_max >= ? THEN 40
+            WHEN c.budget_max >= ? * 0.8 THEN 20
             ELSE 0
           END +
           CASE 
-            WHEN c.location_preference ILIKE $2 THEN 30
+            WHEN c.location_preference ILIKE ? THEN 30
             ELSE 0
           END +
           CASE 
-            WHEN c.property_type = $3 THEN 20
+            WHEN c.property_type = ? THEN 20
             ELSE 0
           END +
           CASE 
-            WHEN c.bedrooms = $4 THEN 10
+            WHEN c.bedrooms = ? THEN 10
             ELSE 0
           END
         ) as match_score
@@ -430,7 +430,7 @@ router.post('/:id/match', async (req, res) => {
     for (const contact of matchesResult.rows) {
       await query(`
         INSERT INTO property_matches (property_id, contact_id, match_score, match_criteria, status)
-        VALUES ($1, $2, $3, $4, 'suggested')
+        VALUES (?, ?, ?, ?, 'suggested')
         ON CONFLICT DO NOTHING
       `, [
         property.id,

@@ -39,7 +39,7 @@ router.patch('/read-all', async (req, res) => {
 router.patch('/:id/read', async (req, res) => {
   try {
     await query(
-      `UPDATE notifications SET is_read=1, updated_at=datetime('now') WHERE id=$1`,
+      `UPDATE notifications SET is_read=1, updated_at=datetime('now') WHERE id=?`,
       [req.params.id]
     );
     res.json({ success: true });
@@ -51,7 +51,7 @@ router.patch('/:id/read', async (req, res) => {
 // DELETE /api/notifications/:id — delete a notification
 router.delete('/:id', async (req, res) => {
   try {
-    await query(`DELETE FROM notifications WHERE id=$1`, [req.params.id]);
+    await query(`DELETE FROM notifications WHERE id=?`, [req.params.id]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete notification' });

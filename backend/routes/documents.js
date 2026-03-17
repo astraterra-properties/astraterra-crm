@@ -91,7 +91,7 @@ router.get('/categories', async (req, res) => {
     let sql = 'SELECT category, entity_type, COUNT(*) as count FROM documents';
     const params = [];
     if (isOwnDocsOnly(req.user)) {
-      sql += ' WHERE (uploaded_by = $1 OR (entity_type = \'agent\' AND entity_id = $2))';
+      sql += ' WHERE (uploaded_by = ? OR (entity_type = \'agent\' AND entity_id = ?))';
       params.push(req.user.email, req.user.id);
     }
     sql += ' GROUP BY category, entity_type';
@@ -185,7 +185,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
          drive_file_id, drive_view_link, drive_download_link, drive_folder_id,
          file_size, mime_type, notes, uploaded_by)
       VALUES
-        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING id
     `;
     const insertResult = await query(insertSql, [
@@ -227,7 +227,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 // DELETE /api/documents/:id
 router.delete('/:id', async (req, res) => {
   try {
-    const result = await query('SELECT * FROM documents WHERE id = $1', [req.params.id]);
+    const result = await query('SELECT * FROM documents WHERE id = ?', [req.params.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
 
     const doc = result.rows[0];
@@ -248,7 +248,7 @@ router.delete('/:id', async (req, res) => {
       console.error('Cloudinary delete error (continuing):', cloudErr.message);
     }
 
-    await query('DELETE FROM documents WHERE id = $1', [req.params.id]);
+    await query('DELETE FROM documents WHERE id = ?', [req.params.id]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -34,7 +34,7 @@ router.post('/', async (req, res) => {
       `INSERT INTO complaints
          (name, email, phone, property_ref, nature, details, resolution, submitted_at, source, status, created_at)
        VALUES
-         ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'New', datetime('now'))
+         (?, ?, ?, ?, ?, ?, ?, ?, ?, 'New', datetime('now'))
        RETURNING id`,
       [
         name || '',
@@ -82,7 +82,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const result = await query(queryText, params);
 
     const countResult = await query(
-      status ? `SELECT COUNT(*) as total FROM complaints WHERE status = $1` : `SELECT COUNT(*) as total FROM complaints`,
+      status ? `SELECT COUNT(*) as total FROM complaints WHERE status = ?` : `SELECT COUNT(*) as total FROM complaints`,
       status ? [status] : []
     );
 
@@ -113,7 +113,7 @@ router.patch('/:id/status', authenticateToken, async (req, res) => {
     }
 
     await query(
-      `UPDATE complaints SET status = $1, updated_at = datetime('now') WHERE id = $2`,
+      `UPDATE complaints SET status = ?, updated_at = datetime('now') WHERE id = ?`,
       [status, id]
     );
 
@@ -130,7 +130,7 @@ router.patch('/:id/status', authenticateToken, async (req, res) => {
  */
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
-    const result = await query(`SELECT * FROM complaints WHERE id = $1`, [req.params.id]);
+    const result = await query(`SELECT * FROM complaints WHERE id = ?`, [req.params.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'Complaint not found' });
     res.json(result.rows[0]);
   } catch (err) {

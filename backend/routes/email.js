@@ -540,7 +540,7 @@ router.get('/inbox/sync', auth, requireMinRole('admin'), async (req, res) => {
         }
 
         // Check if contact already exists
-        const existingRes = await dbQuery('SELECT id FROM contacts WHERE email = $1', [email]);
+        const existingRes = await dbQuery('SELECT id FROM contacts WHERE email = ?', [email]);
         if (existingRes.rows.length > 0) {
           leadsSkipped++;
           results.push({ email, status: 'already_exists', id: existingRes.rows[0].id });
@@ -550,7 +550,7 @@ router.get('/inbox/sync', auth, requireMinRole('admin'), async (req, res) => {
         // Insert new contact as lead
         const insertRes = await dbQuery(
           `INSERT INTO contacts (name, email, type, status, notes, created_at, updated_at)
-           VALUES ($1, $2, 'Lead', 'New', $3, datetime('now'), datetime('now')) RETURNING id`,
+           VALUES (?, ?, 'Lead', 'New', ?, datetime('now'), datetime('now')) RETURNING id`,
           [
             name,
             email,

@@ -37,7 +37,7 @@ router.get('/', async (req, res) => {
 // GET /api/developers/:id
 router.get('/:id', async (req, res) => {
   try {
-    const result = await query('SELECT * FROM developers WHERE id = $1', [req.params.id]);
+    const result = await query('SELECT * FROM developers WHERE id = ?', [req.params.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(result.rows[0]);
   } catch (err) {
@@ -53,7 +53,7 @@ router.post('/', requireMinRole('admin'), async (req, res) => {
 
     const result = await query(`
       INSERT INTO developers (name, logo_url, website, phone, email, address, description, established_year, status)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      VALUES (?,?,?,?,?,?,?,?,?)
       RETURNING *
     `, [name, logo_url, website, phone, email, address, description, established_year, status]);
 
@@ -96,7 +96,7 @@ router.put('/:id', requireMinRole('admin'), async (req, res) => {
 // DELETE /api/developers/:id
 router.delete('/:id', requireMinRole('admin'), async (req, res) => {
   try {
-    const result = await query('DELETE FROM developers WHERE id = $1 RETURNING id', [req.params.id]);
+    const result = await query('DELETE FROM developers WHERE id = ? RETURNING id', [req.params.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
     res.json({ message: 'Deleted', id: result.rows[0].id });
   } catch (err) {

@@ -42,7 +42,7 @@ router.get('/public', async (req, res) => {
 // GET /api/sale-listings/public/:id — single listing for website
 router.get('/public/:id', async (req, res) => {
   try {
-    const result = await query('SELECT sl.*, u.name as agent_name FROM sale_listings sl LEFT JOIN users u ON sl.agent_id = u.id WHERE sl.id = $1', [req.params.id]);
+    const result = await query('SELECT sl.*, u.name as agent_name FROM sale_listings sl LEFT JOIN users u ON sl.agent_id = u.id WHERE sl.id = ?', [req.params.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(result.rows[0]);
   } catch (err) {
@@ -83,7 +83,7 @@ router.get('/', async (req, res) => {
 // GET /api/sale-listings/:id
 router.get('/:id', async (req, res) => {
   try {
-    const result = await query('SELECT * FROM sale_listings WHERE id = $1', [req.params.id]);
+    const result = await query('SELECT * FROM sale_listings WHERE id = ?', [req.params.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(result.rows[0]);
   } catch (err) {
@@ -114,7 +114,7 @@ router.post('/', async (req, res) => {
         bayut_id, dubizzle_id, pf_id, permit_number, title_deed,
         images, amenities, description, status, featured, portal_status,
         video_url, tour_360_url, owner_name, owner_contact, owner_email, agent_name
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33)
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       RETURNING *
     `, [title, property_type, community_id, community, location,
         bedrooms, bathrooms, size_sqft, price, price_per_sqft,
@@ -168,7 +168,7 @@ router.put('/:id', async (req, res) => {
 // DELETE /api/sale-listings/:id
 router.delete('/:id', async (req, res) => {
   try {
-    const result = await query('DELETE FROM sale_listings WHERE id = $1 RETURNING id', [req.params.id]);
+    const result = await query('DELETE FROM sale_listings WHERE id = ? RETURNING id', [req.params.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
     res.json({ message: 'Deleted', id: result.rows[0].id });
   } catch (err) {

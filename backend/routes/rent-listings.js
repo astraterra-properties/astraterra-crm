@@ -42,7 +42,7 @@ router.get('/public', async (req, res) => {
 // GET /api/rent-listings/public/:id — single rental for website
 router.get('/public/:id', async (req, res) => {
   try {
-    const result = await query('SELECT rl.*, u.name as agent_name FROM rent_listings rl LEFT JOIN users u ON rl.agent_id = u.id WHERE rl.id = $1', [req.params.id]);
+    const result = await query('SELECT rl.*, u.name as agent_name FROM rent_listings rl LEFT JOIN users u ON rl.agent_id = u.id WHERE rl.id = ?', [req.params.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(result.rows[0]);
   } catch (err) {
@@ -83,7 +83,7 @@ router.get('/', async (req, res) => {
 // GET /api/rent-listings/:id
 router.get('/:id', async (req, res) => {
   try {
-    const result = await query('SELECT * FROM rent_listings WHERE id = $1', [req.params.id]);
+    const result = await query('SELECT * FROM rent_listings WHERE id = ?', [req.params.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(result.rows[0]);
   } catch (err) {
@@ -116,7 +116,7 @@ router.post('/', async (req, res) => {
         permit_number, ejari_number, images, amenities, description,
         available_from, lease_term, status, featured, portal_status,
         video_url, tour_360_url, owner_name, owner_contact, owner_email, agent_name, payment_terms
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37)
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       RETURNING *
     `, [title, property_type, community_id, community, location,
         bedrooms, bathrooms, size_sqft, annual_rent, monthly_rent,
@@ -172,7 +172,7 @@ router.put('/:id', async (req, res) => {
 // DELETE /api/rent-listings/:id
 router.delete('/:id', async (req, res) => {
   try {
-    const result = await query('DELETE FROM rent_listings WHERE id = $1 RETURNING id', [req.params.id]);
+    const result = await query('DELETE FROM rent_listings WHERE id = ? RETURNING id', [req.params.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
     res.json({ message: 'Deleted', id: result.rows[0].id });
   } catch (err) {

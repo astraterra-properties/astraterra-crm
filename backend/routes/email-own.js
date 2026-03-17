@@ -438,7 +438,7 @@ router.post('/welcome', async (req, res) => {
     });
     // Mark welcome sent in subscribers table
     await query(
-      `UPDATE newsletter_subscribers SET welcome_sent=1, updated_at=datetime('now') WHERE LOWER(email)=LOWER($1)`,
+      `UPDATE newsletter_subscribers SET welcome_sent=1, updated_at=datetime('now') WHERE LOWER(email)=LOWER(?)`,
       [email]
     ).catch(() => {});
     res.json({ success: true });
@@ -460,19 +460,19 @@ router.post('/subscribe', async (req, res) => {
   try {
     // Upsert into newsletter_subscribers
     const existing = await query(
-      `SELECT id, welcome_sent FROM newsletter_subscribers WHERE LOWER(email)=LOWER($1)`,
+      `SELECT id, welcome_sent FROM newsletter_subscribers WHERE LOWER(email)=LOWER(?)`,
       [email]
     );
 
     if (existing.rows.length) {
       // Re-subscribe if unsubscribed
       await query(
-        `UPDATE newsletter_subscribers SET status='active', first_name=COALESCE($1,first_name), phone=COALESCE($3,phone), updated_at=datetime('now') WHERE LOWER(email)=LOWER($2)`,
+        `UPDATE newsletter_subscribers SET status='active', first_name=COALESCE(?,first_name), phone=COALESCE(?,phone), updated_at=datetime('now') WHERE LOWER(email)=LOWER(?)`,
         [first || null, email, phoneClean || null]
       );
     } else {
       await query(
-        `INSERT INTO newsletter_subscribers (email, first_name, last_name, phone, source) VALUES ($1,$2,$3,$4,'website')`,
+        `INSERT INTO newsletter_subscribers (email, first_name, last_name, phone, source) VALUES (?,?,?,?,'website')`,
         [email.toLowerCase(), first, last, phoneClean]
       );
     }
@@ -483,7 +483,7 @@ router.post('/subscribe', async (req, res) => {
       subject: '🏙️ Welcome to the Astraterra Insider — Your Dubai Property Edge',
       html: welcomeEmailHtml(first || 'there'),
     }).then(() => {
-      query(`UPDATE newsletter_subscribers SET welcome_sent=1 WHERE LOWER(email)=LOWER($1)`, [email]).catch(() => {});
+      query(`UPDATE newsletter_subscribers SET welcome_sent=1 WHERE LOWER(email)=LOWER(?)`, [email]).catch(() => {});
     }).catch(err => console.error('Welcome email failed:', err.message));
 
     // Also create CRM contact + lead (with phone if provided)
@@ -548,7 +548,7 @@ router.post('/subscribers/import', requireMinRole('admin'), async (req, res) => 
 router.delete('/subscribers/:id', requireMinRole('admin'), async (req, res) => {
   try {
     await query(
-      `UPDATE newsletter_subscribers SET status='unsubscribed', unsubscribed_at=datetime('now') WHERE id=$1`,
+      `UPDATE newsletter_subscribers SET status='unsubscribed', unsubscribed_at=datetime('now') WHERE id=?`,
       [req.params.id]
     );
     res.json({ success: true });
@@ -578,7 +578,7 @@ router.post('/campaigns', requireMinRole('admin'), async (req, res) => {
 
     const camp = await query(
       `INSERT INTO email_campaigns (subject, preview_text, html_body, text_body, recipients_count, status, created_by)
-       VALUES ($1,$2,$3,$4,$5,'draft',$6) RETURNING *`,
+       VALUES (?,?,?,?,?,'draft',?) RETURNING *`,
       [subject, preview_text || '', html_body, text_body || '', total, req.user?.id || null]
     );
     const campaign = camp.rows[0];
@@ -586,7 +586,7 @@ router.post('/campaigns', requireMinRole('admin'), async (req, res) => {
     if (send_now) {
       // Fire-and-forget bulk send
       sendCampaign(campaign).catch(err => console.error('Campaign send error:', err.message));
-      await query(`UPDATE email_campaigns SET status='sending' WHERE id=$1`, [campaign.id]);
+      await query(`UPDATE email_campaigns SET status='sending' WHERE id=?`, [campaign.id]);
       campaign.status = 'sending';
     }
 
@@ -600,12 +600,12 @@ router.post('/campaigns', requireMinRole('admin'), async (req, res) => {
 // POST /api/email-own/campaigns/:id/send — send an existing draft
 router.post('/campaigns/:id/send', requireMinRole('admin'), async (req, res) => {
   try {
-    const camp = await query(`SELECT * FROM email_campaigns WHERE id=$1`, [req.params.id]);
+    const camp = await query(`SELECT * FROM email_campaigns WHERE id=?`, [req.params.id]);
     if (!camp.rows.length) return res.status(404).json({ error: 'Campaign not found' });
     const campaign = camp.rows[0];
     if (campaign.status === 'sent') return res.status(400).json({ error: 'Already sent' });
 
-    await query(`UPDATE email_campaigns SET status='sending' WHERE id=$1`, [campaign.id]);
+    await query(`UPDATE email_campaigns SET status='sending' WHERE id=?`, [campaign.id]);
     sendCampaign(campaign).catch(err => console.error('Campaign send error:', err.message));
     res.json({ success: true, message: 'Sending started — check campaign status for progress' });
   } catch (err) {
@@ -657,7 +657,7 @@ router.post('/campaigns/send-template', requireMinRole('admin'), async (req, res
 
     const camp = await query(
       `INSERT INTO email_campaigns (subject, preview_text, html_body, recipients_count, status, created_by)
-       VALUES ($1,$2,$3,$4,'sending',$5) RETURNING *`,
+       VALUES (?,?,?,?,'sending',?) RETURNING *`,
       [subject, templateData?.editionLabel || '', baseHtml, total, req.user?.id || null]
     );
     const campaign = camp.rows[0];
@@ -696,20 +696,20 @@ async function sendCampaign(campaign, htmlOverride = null) {
         await sendViaGmail({ to: sub.email, subject: campaign.subject, html });
         await query(
           `INSERT OR REPLACE INTO email_sends (campaign_id, subscriber_id, email, status, sent_at)
-           VALUES ($1,$2,$3,'sent',datetime('now'))`,
+           VALUES (?,?,?,'sent',datetime('now'))`,
           [campaign.id, sub.id, sub.email]
         );
         sentCount++;
       } catch (err) {
         await query(
           `INSERT OR REPLACE INTO email_sends (campaign_id, subscriber_id, email, status, error)
-           VALUES ($1,$2,$3,'failed',$4)`,
+           VALUES (?,?,?,'failed',?)`,
           [campaign.id, sub.id, sub.email, err.message]
         ).catch(() => {});
       }
     }));
 
-    await query(`UPDATE email_campaigns SET sent_count=$1 WHERE id=$2`, [sentCount, campaign.id]);
+    await query(`UPDATE email_campaigns SET sent_count=? WHERE id=?`, [sentCount, campaign.id]);
 
     if (i + BATCH_SIZE < list.length) {
       await new Promise(r => setTimeout(r, DELAY_MS));
@@ -717,7 +717,7 @@ async function sendCampaign(campaign, htmlOverride = null) {
   }
 
   await query(
-    `UPDATE email_campaigns SET status='sent', sent_at=datetime('now'), sent_count=$1 WHERE id=$2`,
+    `UPDATE email_campaigns SET status='sent', sent_at=datetime('now'), sent_count=? WHERE id=?`,
     [sentCount, campaign.id]
   );
   console.log(`✅ Campaign "${campaign.subject}" sent to ${sentCount}/${list.length} subscribers`);

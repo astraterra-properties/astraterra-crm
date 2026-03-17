@@ -40,7 +40,7 @@ router.post('/', async (req, res) => {
   try {
     const { full_name, phone, email, nationality, building, area, unit_number, property_type, bedrooms, notes, visibility = 'all', assigned_areas = '[]', assigned_buildings = '[]' } = req.body;
     if (!full_name) return res.status(400).json({ error: 'full_name is required' });
-    const result = await query(`INSERT INTO owner_database (full_name, phone, email, nationality, building, area, unit_number, property_type, bedrooms, notes, visibility, assigned_areas, assigned_buildings, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+    const result = await query(`INSERT INTO owner_database (full_name, phone, email, nationality, building, area, unit_number, property_type, bedrooms, notes, visibility, assigned_areas, assigned_buildings, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING *`,
       [full_name, phone, email, nationality, building, area, unit_number, property_type, bedrooms || null, notes, visibility, assigned_areas, assigned_buildings, req.user?.id || null]);
     res.status(201).json(result.rows[0]);
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to create owner' }); }
@@ -64,7 +64,7 @@ router.put('/:id', async (req, res) => {
 // DELETE /api/owner-database/:id
 router.delete('/:id', async (req, res) => {
   try {
-    const result = await query('DELETE FROM owner_database WHERE id = $1 RETURNING id', [req.params.id]);
+    const result = await query('DELETE FROM owner_database WHERE id = ? RETURNING id', [req.params.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
     res.json({ message: 'Deleted', id: result.rows[0].id });
   } catch (err) { res.status(500).json({ error: 'Failed to delete owner' }); }
@@ -79,7 +79,7 @@ router.post('/bulk-import', async (req, res) => {
     for (const o of owners) {
       try {
         if (!o.full_name) { errors.push(`Skipped row: no full_name`); continue; }
-        await query(`INSERT INTO owner_database (full_name, phone, email, nationality, building, area, unit_number, property_type, bedrooms, notes, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+        await query(`INSERT INTO owner_database (full_name, phone, email, nationality, building, area, unit_number, property_type, bedrooms, notes, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
           [o.full_name, o.phone||null, o.email||null, o.nationality||null, o.building||null, o.area||null, o.unit_number||null, o.property_type||null, o.bedrooms||null, o.notes||null, req.user?.id||null]);
         imported++;
       } catch (e) { errors.push(`Error for ${o.full_name}: ${e.message}`); }

@@ -150,7 +150,7 @@ router.get('/:id', async (req, res) => {
         u.email as assigned_to_email
       FROM contacts c
       LEFT JOIN users u ON c.assigned_to = u.id
-      WHERE c.id = $1
+      WHERE c.id = ?
     `, [id]);
 
     if (result.rows.length === 0) {
@@ -161,7 +161,7 @@ router.get('/:id', async (req, res) => {
     const leadsResult = await query(`
       SELECT id, status, priority, budget, created_at
       FROM leads
-      WHERE contact_id = $1
+      WHERE contact_id = ?
       ORDER BY created_at DESC
     `, [id]);
 
@@ -173,7 +173,7 @@ router.get('/:id', async (req, res) => {
         p.location as property_location
       FROM viewings v
       LEFT JOIN properties p ON v.property_id = p.id
-      WHERE v.contact_id = $1
+      WHERE v.contact_id = ?
       ORDER BY v.scheduled_at DESC
     `, [id]);
 
@@ -231,7 +231,7 @@ router.post('/', async (req, res) => {
         purpose, timeline, must_haves, nice_to_haves,
         source, source_details, notes, tags, assigned_to, status
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `, [
       name,
@@ -321,14 +321,14 @@ router.delete('/:id', requireMinRole('admin'), async (req, res) => {
     const { id } = req.params;
 
     // Check for related leads
-    const leadsCheck = await query('SELECT COUNT(*) as count FROM leads WHERE contact_id = $1', [id]);
+    const leadsCheck = await query('SELECT COUNT(*) as count FROM leads WHERE contact_id = ?', [id]);
     if (parseInt(leadsCheck.rows[0].count) > 0) {
       return res.status(400).json({ 
         error: 'Cannot delete contact with existing leads. Archive instead.' 
       });
     }
 
-    const result = await query('DELETE FROM contacts WHERE id = $1 RETURNING id', [id]);
+    const result = await query('DELETE FROM contacts WHERE id = ? RETURNING id', [id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Contact not found' });
@@ -365,7 +365,7 @@ router.post('/import', requireMinRole('admin'), async (req, res) => {
             purpose, timeline, must_haves, nice_to_haves,
             source, notes, assigned_to, status
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           RETURNING id
         `, [
           contact.name,
@@ -420,8 +420,8 @@ router.put('/:id/assign', async (req, res) => {
 
     const result = await query(`
       UPDATE contacts
-      SET assigned_agent = $1, assigned_to = $2, updated_at = datetime('now')
-      WHERE id = $3
+      SET assigned_agent = ?, assigned_to = ?, updated_at = datetime('now')
+      WHERE id = ?
       RETURNING *
     `, [agent_name || null, assigned_to || null, id]);
 
@@ -451,13 +451,13 @@ router.patch('/:id/pool', async (req, res) => {
     if (typeof in_pool === 'boolean') {
       newValue = in_pool ? 1 : 0;
     } else {
-      const current = await query(`SELECT lead_pool FROM contacts WHERE id = $1`, [id]);
+      const current = await query(`SELECT lead_pool FROM contacts WHERE id = ?`, [id]);
       if (current.rows.length === 0) return res.status(404).json({ error: 'Contact not found' });
       newValue = current.rows[0].lead_pool ? 0 : 1; // toggle
     }
 
     const result = await query(`
-      UPDATE contacts SET lead_pool = $1, updated_at = datetime('now') WHERE id = $2 RETURNING *
+      UPDATE contacts SET lead_pool = ?, updated_at = datetime('now') WHERE id = ? RETURNING *
     `, [newValue, id]);
 
     if (result.rows.length === 0) return res.status(404).json({ error: 'Contact not found' });
@@ -479,12 +479,12 @@ router.post('/:id/convert-to-lead', async (req, res) => {
     const { id } = req.params;
 
     // Get the contact
-    const contactResult = await query(`SELECT * FROM contacts WHERE id = $1`, [id]);
+    const contactResult = await query(`SELECT * FROM contacts WHERE id = ?`, [id]);
     if (contactResult.rows.length === 0) return res.status(404).json({ error: 'Contact not found' });
     const contact = contactResult.rows[0];
 
     // Check if a lead already exists for this contact
-    const existingLead = await query(`SELECT id FROM leads WHERE contact_id = $1 LIMIT 1`, [id]);
+    const existingLead = await query(`SELECT id FROM leads WHERE contact_id = ? LIMIT 1`, [id]);
     let leadId;
 
     if (existingLead.rows.length > 0) {
@@ -493,7 +493,7 @@ router.post('/:id/convert-to-lead', async (req, res) => {
       // Create new lead record
       const newLead = await query(`
         INSERT INTO leads (contact_id, status, priority, pipeline_stage, lead_type, source, notes, created_at, updated_at)
-        VALUES ($1, 'not_contacted', 'medium', 'new_lead', $2, $3, $4, datetime('now'), datetime('now'))
+        VALUES (?, 'not_contacted', 'medium', 'new_lead', ?, ?, ?, datetime('now'), datetime('now'))
       `, [
         id,
         contact.type || 'buyer',
@@ -501,12 +501,12 @@ router.post('/:id/convert-to-lead', async (req, res) => {
         contact.notes || '',
       ]);
       // Get the new lead id
-      const newLeadRow = await query(`SELECT id FROM leads WHERE contact_id = $1 ORDER BY created_at DESC LIMIT 1`, [id]);
+      const newLeadRow = await query(`SELECT id FROM leads WHERE contact_id = ? ORDER BY created_at DESC LIMIT 1`, [id]);
       leadId = newLeadRow.rows[0]?.id;
     }
 
     // Remove from lead pool
-    await query(`UPDATE contacts SET lead_pool = 0, updated_at = datetime('now') WHERE id = $1`, [id]);
+    await query(`UPDATE contacts SET lead_pool = 0, updated_at = datetime('now') WHERE id = ?`, [id]);
 
     res.json({ success: true, lead_id: leadId, message: 'Contact converted to active lead' });
   } catch (error) {

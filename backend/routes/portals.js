@@ -24,20 +24,20 @@ async function capturePortalLead(portalName, data) {
   const contactKey = email || phone;
   if (contactKey) {
     const existing = email
-      ? await q(`SELECT id FROM contacts WHERE LOWER(email) = LOWER($1) LIMIT 1`, [email])
-      : await q(`SELECT id FROM contacts WHERE phone = $1 LIMIT 1`, [phone]);
+      ? await q(`SELECT id FROM contacts WHERE LOWER(email) = LOWER(?) LIMIT 1`, [email])
+      : await q(`SELECT id FROM contacts WHERE phone = ? LIMIT 1`, [phone]);
     if (existing.rows.length) {
       contactId = existing.rows[0].id;
     } else {
       const c = await q(
-        `INSERT INTO contacts (name, email, phone, source, status) VALUES ($1,$2,$3,$4,'active') RETURNING id`,
+        `INSERT INTO contacts (name, email, phone, source, status) VALUES (?,?,?,?,'active') RETURNING id`,
         [name || email.split('@')[0], email, phone, portalName]
       );
       contactId = c.rows[0].id;
     }
   } else {
     const c = await q(
-      `INSERT INTO contacts (name, source, status) VALUES ($1,$2,'active') RETURNING id`,
+      `INSERT INTO contacts (name, source, status) VALUES (?,?,'active') RETURNING id`,
       [name, portalName]
     );
     contactId = c.rows[0].id;
@@ -46,7 +46,7 @@ async function capturePortalLead(portalName, data) {
   // Create lead
   const lead = await q(
     `INSERT INTO leads (contact_id, pipeline_stage, status, source, source_channel, notes)
-     VALUES ($1,'new_lead','not_contacted',$2,$3,$4) RETURNING id`,
+     VALUES (?,'new_lead','not_contacted',?,?,?) RETURNING id`,
     [contactId, portalName, portalName.toLowerCase().replace(/\s+/g, '-'), property ? `Enquiry about: ${property}. ${message}` : message]
   );
   const leadId = lead.rows[0].id;
@@ -58,14 +58,14 @@ async function capturePortalLead(portalName, data) {
         last_sync = datetime('now'),
         status = 'connected',
         updated_at = datetime('now')
-    WHERE LOWER(portal_name) = LOWER($1)
+    WHERE LOWER(portal_name) = LOWER(?)
   `, [portalName]);
 
   // Create notification
   const displayName = name || email || phone || 'Unknown';
   await q(
     `INSERT INTO notifications (type, icon, title, body, link, meta, is_read)
-     VALUES ('lead', $1, $2, $3, '/pipeline', $4, 0)`,
+     VALUES ('lead', ?, ?, ?, '/pipeline', ?, 0)`,
     [
       portalName === 'Bayut' ? '🏠' : portalName === 'Dubizzle' ? '🔑' : '🌿',
       `New lead from ${portalName}`,
@@ -152,7 +152,7 @@ router.get('/', async (req, res) => {
 router.get('/:name/status', async (req, res) => {
   try {
     const result = await query(
-      'SELECT * FROM portal_integrations WHERE LOWER(portal_name) = LOWER($1)',
+      'SELECT * FROM portal_integrations WHERE LOWER(portal_name) = LOWER(?)',
       [req.params.name]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Portal not found' });
@@ -170,7 +170,7 @@ router.post('/:name/connect', requireMinRole('admin'), async (req, res) => {
 
     // Check if portal exists
     const existing = await query(
-      'SELECT * FROM portal_integrations WHERE LOWER(portal_name) = LOWER($1)',
+      'SELECT * FROM portal_integrations WHERE LOWER(portal_name) = LOWER(?)',
       [portalName]
     );
 
@@ -178,8 +178,8 @@ router.post('/:name/connect', requireMinRole('admin'), async (req, res) => {
       // Update
       const result = await query(`
         UPDATE portal_integrations 
-        SET api_key = $1, api_secret = $2, account_id = $3, status = 'connected', updated_at = datetime('now')
-        WHERE LOWER(portal_name) = LOWER($4)
+        SET api_key = ?, api_secret = ?, account_id = ?, status = 'connected', updated_at = datetime('now')
+        WHERE LOWER(portal_name) = LOWER(?)
         RETURNING *
       `, [api_key, api_secret, account_id, portalName]);
       res.json({ success: true, portal: result.rows[0] });
@@ -187,7 +187,7 @@ router.post('/:name/connect', requireMinRole('admin'), async (req, res) => {
       // Insert
       const result = await query(`
         INSERT INTO portal_integrations (portal_name, api_key, api_secret, account_id, status)
-        VALUES ($1, $2, $3, $4, 'connected')
+        VALUES (?, ?, ?, ?, 'connected')
         RETURNING *
       `, [portalName, api_key, api_secret, account_id]);
       res.json({ success: true, portal: result.rows[0] });
@@ -207,7 +207,7 @@ router.post('/:name/sync', requireMinRole('admin'), async (req, res) => {
     await query(`
       UPDATE portal_integrations 
       SET last_sync = datetime('now'), updated_at = datetime('now')
-      WHERE LOWER(portal_name) = LOWER($1)
+      WHERE LOWER(portal_name) = LOWER(?)
     `, [portalName]);
 
     res.json({
@@ -228,7 +228,7 @@ router.post('/:name/disconnect', requireMinRole('admin'), async (req, res) => {
     const result = await query(`
       UPDATE portal_integrations 
       SET status = 'disconnected', api_key = NULL, api_secret = NULL, account_id = NULL, updated_at = datetime('now')
-      WHERE LOWER(portal_name) = LOWER($1)
+      WHERE LOWER(portal_name) = LOWER(?)
       RETURNING *
     `, [req.params.name]);
 

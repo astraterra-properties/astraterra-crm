@@ -46,7 +46,7 @@ router.get('/public/:id', async (req, res) => {
       SELECT op.*, d.name as developer_name
       FROM offplan_projects op
       LEFT JOIN developers d ON op.developer_id = d.id
-      WHERE op.id = $1
+      WHERE op.id = ?
     `, [req.params.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(result.rows[0]);
@@ -99,7 +99,7 @@ router.get('/:id', async (req, res) => {
       SELECT op.*, d.name as developer_name
       FROM offplan_projects op
       LEFT JOIN developers d ON op.developer_id = d.id
-      WHERE op.id = $1
+      WHERE op.id = ?
     `, [req.params.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(result.rows[0]);
@@ -129,7 +129,7 @@ router.post('/', requireMinRole('admin'), async (req, res) => {
     if (featuredRes.rows.length >= 3) {
       const toUnfeature = featuredRes.rows.slice(2).map(r => r.id);
       for (const id of toUnfeature) {
-        await query("UPDATE offplan_projects SET featured = 0 WHERE id = $1", [id]);
+        await query("UPDATE offplan_projects SET featured = 0 WHERE id = ?", [id]);
       }
     }
 
@@ -139,7 +139,7 @@ router.post('/', requireMinRole('admin'), async (req, res) => {
         min_price, max_price, payment_plan, down_payment_percent, handover_date,
         completion_percent, total_units, available_units, brochure_url, images,
         status, featured, description, amenities
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       RETURNING *
     `, [name, developer_id, location, community, project_type, unit_types,
         min_price, max_price, payment_plan, down_payment_percent, handover_date,
@@ -190,7 +190,7 @@ router.put('/:id', requireMinRole('admin'), async (req, res) => {
 // DELETE /api/offplan/:id
 router.delete('/:id', requireMinRole('admin'), async (req, res) => {
   try {
-    const result = await query('DELETE FROM offplan_projects WHERE id = $1 RETURNING id', [req.params.id]);
+    const result = await query('DELETE FROM offplan_projects WHERE id = ? RETURNING id', [req.params.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
     res.json({ message: 'Deleted', id: result.rows[0].id });
   } catch (err) {
