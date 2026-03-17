@@ -205,6 +205,47 @@ pool.query("SELECT datetime('now') as now", (err, res) => {
   }
 })();
 
+// Initialize users table + seed default admin (self-healing on fresh DB)
+(async () => {
+  const bcrypt = require('bcrypt');
+  const { query: dbQuery } = require('./config/database');
+  try {
+    await dbQuery(`CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      name TEXT NOT NULL,
+      phone TEXT,
+      role TEXT DEFAULT 'agent',
+      active INTEGER DEFAULT 1,
+      profile_complete INTEGER DEFAULT 0,
+      rera_number TEXT,
+      specialty TEXT,
+      total_transactions INTEGER DEFAULT 0,
+      about TEXT,
+      avatar_url TEXT,
+      last_login TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    )`);
+    // Seed default admin if no users exist
+    const existing = await dbQuery(`SELECT COUNT(*) as cnt FROM users`, []);
+    if ((existing.rows[0]?.cnt || 0) == 0) {
+      const adminHash = await bcrypt.hash('qwerty@123', 12);
+      const josephHash = await bcrypt.hash('joseph123', 12);
+      await dbQuery(`INSERT INTO users (email, password_hash, name, role, active, profile_complete) VALUES (?, ?, ?, ?, 1, 1)`,
+        ['Test@admin.com', adminHash, 'Admin', 'admin']);
+      await dbQuery(`INSERT INTO users (email, password_hash, name, role, active, profile_complete) VALUES (?, ?, ?, ?, 1, 1)`,
+        ['joseph@astraterra.ae', josephHash, 'Joseph Toubia', 'owner']);
+      console.log('✅ Default admin users seeded (Test@admin.com + joseph@astraterra.ae)');
+    } else {
+      console.log('✅ Users table ready (' + existing.rows[0]?.cnt + ' users)');
+    }
+  } catch (e) {
+    console.error('Users table init error:', e.message);
+  }
+})();
+
 // Trust the first proxy (Cloudflare / nginx) so rate limiting uses real client IP
 app.set('trust proxy', 1);
 
