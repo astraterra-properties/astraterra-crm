@@ -35,6 +35,7 @@ import {
   FileText,
   FolderOpen,
   Eye,
+  Download,
 } from 'lucide-react';
 
 interface SearchResult {
@@ -88,6 +89,7 @@ const allMenuGroups = [
       { name: 'Rent Listings',        path: '/rent-listings',  icon: Key,       minRole: 'agent' },
       { name: 'Developers',           path: '/developers',     icon: Building2, minRole: 'agent' },
       { name: 'Areas & Communities',  path: '/communities',    icon: MapPin,    minRole: 'agent' },
+      { name: 'Owner Database',       path: '/owner-database', icon: Users2,    minRole: 'admin' },
     ]
   },
   {
@@ -120,15 +122,7 @@ const allMenuGroups = [
       { name: 'Document Manager', path: '/documents', icon: FolderOpen, minRole: 'admin' },
     ]
   },
-  {
-    label: 'Trading',
-    minRole: 'admin',
-    items: [
-      { name: 'Trading Dashboard', path: '/trading',       icon: BarChart3, minRole: 'admin' },
-      { name: 'Futures Pro Bot',    path: '/futures-trend', icon: BarChart3, minRole: 'admin' },
-      { name: 'Binance Gold Scalper', path: '/gold-binance',  icon: BarChart3, minRole: 'admin' },
-    ]
-  },
+
   {
     label: 'Analytics',
     minRole: 'agent',
@@ -394,7 +388,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                 return (
                   <button
                     key={item.path}
-                    onClick={() => { router.push(item.path); closeMobile(); }}
+                    onClick={() => { if (item.path.startsWith('http')) { window.open(item.path, '_blank'); } else { router.push(item.path); closeMobile(); } }}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left group relative"
                     style={{
                       background: isActive ? 'linear-gradient(135deg, #C9A96E, #8A6F2F)' : 'transparent',

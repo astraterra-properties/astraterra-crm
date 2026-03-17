@@ -93,7 +93,7 @@ const query = (text, params = []) => {
     // Convert PostgreSQL specific syntax
     sqliteText = sqliteText
       .replace(/SERIAL PRIMARY KEY/gi, 'INTEGER PRIMARY KEY AUTOINCREMENT')
-      .replace(/CURRENT_TIMESTAMP/g, "datetime('now')")
+      // CURRENT_TIMESTAMP is valid native SQLite — no replacement needed
       .replace(/CURRENT_DATE/g, "date('now')")
       .replace(/INTERVAL\s+'(\d+)\s+days'/gi, (match, days) => `'-${days} days'`)
       .replace(/::numeric/g, '')

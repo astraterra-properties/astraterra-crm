@@ -131,9 +131,10 @@ export default function ProfileGate({ children }: { children: React.ReactNode })
   const inputStyle = { borderColor: '#E5E7EB', color: '#374151' };
   const focusStyle = { borderColor: '#C9A96E', boxShadow: '0 0 0 3px rgba(201,169,110,0.12)' };
 
-  if (checking) return null;
+  // Render children immediately while checking — don't block on auth
+  if (!needsProfile || checking) return <>{children}</>;
 
-  if (!needsProfile) return <>{children}</>;
+  // Only show modal if profile is definitely incomplete (checked=done AND needsProfile=true)
 
   const initials = form.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'ME';
 

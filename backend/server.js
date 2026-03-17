@@ -263,6 +263,19 @@ app.use('/uploads', require('express').static(require('path').join(__dirname, '.
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Astraterra CRM API is running' });
 });
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', message: 'Astraterra CRM API is running', uptime: process.uptime() });
+});
+
+// Health status endpoint — shows all service states (used by health-monitor.js)
+app.get('/api/health-status', (req, res) => {
+  try {
+    const { getHealthStatus } = require('./health-monitor');
+    res.json(getHealthStatus());
+  } catch (e) {
+    res.json({ timestamp: new Date().toISOString(), services: {}, note: 'Health monitor not running as integrated module' });
+  }
+});
 
 // API Routes
 const authRoutes = require('./routes/auth');
@@ -332,6 +345,7 @@ app.use('/api/documents', documentsRoutes);
 app.use('/api/brochure-leads', brochureLeadsRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/meetings', meetingsRoutes);
+app.use('/api/owner-database', require('./routes/owner-database'));
 app.use('/api/oversight', oversightRoutes);
 
 // ══ PROXY: Futures Pro Bot API ═════════════════════════════════════════════════
@@ -451,6 +465,14 @@ app.use((err, req, res, next) => {
     error: 'Something went wrong!',
     message: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
+});
+
+// Brand assets download route
+app.get('/api/brand-assets-download', (req, res) => {
+  const filePath = require('path').join(__dirname, '..', 'data', 'uploads', 'downloads', 'astraterra-brand-assets.tar.gz');
+  res.setHeader('Content-Disposition', 'attachment; filename="astraterra-brand-assets.tar.gz"');
+  res.setHeader('Content-Type', 'application/gzip');
+  res.sendFile(filePath);
 });
 
 // Start server

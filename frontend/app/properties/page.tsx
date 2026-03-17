@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, Edit2, Trash2, Building2, Bed, Bath, Maximize2 } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, Building2, Bed, Bath, Maximize2, Upload, Download, X, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface Property {
   id: number;
@@ -50,6 +50,10 @@ export default function PropertiesPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const LIMIT = 50;
+  const [showImport, setShowImport] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const _role = localStorage.getItem('userRole') || 'agent';
@@ -111,6 +115,50 @@ export default function PropertiesPage() {
     fetchProperties(currentPage);
   };
 
+  const handleImportFile = async (file: File) => {
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/properties/import', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setImportResult(data);
+        fetchProperties(1);
+      } else {
+        setImportResult({ imported: 0, skipped: 0, errors: [data.error || 'Import failed'] });
+      }
+    } catch (e) {
+      setImportResult({ imported: 0, skipped: 0, errors: ['Network error'] });
+    }
+    setImporting(false);
+  };
+
+  const downloadTemplate = () => {
+    const token = localStorage.getItem('token');
+    const a = document.createElement('a');
+    a.href = '/api/properties/import/template';
+    a.download = 'properties-import-template.xlsx';
+    // add auth header via fetch
+    fetch('/api/properties/import/template', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.blob())
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        a.href = url;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+  };
+
   // Server-side filtering — no client-side filter needed
   const filtered = properties;
 
@@ -132,13 +180,22 @@ export default function PropertiesPage() {
             </div>
           </div>
           {canAddEdit && (
-          <button
-            onClick={() => { setCurrentProperty({ status: 'available', purpose: 'sale', type: 'apartment' }); setShowModal(true); }}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-lg"
-            style={{ background: 'linear-gradient(135deg, #C9A96E, #8A6F2F)', boxShadow: '0 2px 8px rgba(201,169,110,0.3)' }}
-          >
-            <Plus className="w-4 h-4" /> Add Property
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setShowImport(true); setImportResult(null); }}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border"
+              style={{ borderColor: '#C9A96E', color: '#8A6F2F', background: 'rgba(201,169,110,0.08)' }}
+            >
+              <Upload className="w-4 h-4" /> Import Excel
+            </button>
+            <button
+              onClick={() => { setCurrentProperty({ status: 'available', purpose: 'sale', type: 'apartment' }); setShowModal(true); }}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-lg"
+              style={{ background: 'linear-gradient(135deg, #C9A96E, #8A6F2F)', boxShadow: '0 2px 8px rgba(201,169,110,0.3)' }}
+            >
+              <Plus className="w-4 h-4" /> Add Property
+            </button>
+          </div>
           )}
         </div>
       </div>
@@ -373,6 +430,91 @@ export default function PropertiesPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Import Excel Modal ── */}
+      {showImport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg" style={{ maxHeight: '90vh', overflow: 'auto' }}>
+            <div className="flex items-center justify-between p-6 border-b" style={{ borderColor: '#E5E7EB' }}>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #131B2B, #1e2a3d)' }}>
+                  <Upload className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold" style={{ color: '#131B2B' }}>Import Properties from Excel</h2>
+                  <p className="text-xs" style={{ color: '#9CA3AF' }}>Upload .xlsx or .xls — owner data auto-detected</p>
+                </div>
+              </div>
+              <button onClick={() => { setShowImport(false); setImportResult(null); }} className="p-1.5 rounded-lg hover:bg-gray-100">
+                <X className="w-5 h-5" style={{ color: '#9CA3AF' }} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Step 1: Download template */}
+              <div className="rounded-xl p-4 border" style={{ borderColor: '#E5E7EB', background: '#FAFAFA' }}>
+                <p className="text-sm font-semibold mb-1" style={{ color: '#131B2B' }}>Step 1 — Download the template</p>
+                <p className="text-xs mb-3" style={{ color: '#6B7280' }}>Fill in your property data using our pre-formatted Excel template. Owner Name, Contact &amp; Email columns are included.</p>
+                <button onClick={downloadTemplate}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border"
+                  style={{ borderColor: '#C9A96E', color: '#8A6F2F', background: 'rgba(201,169,110,0.08)' }}>
+                  <Download className="w-4 h-4" /> Download Template (.xlsx)
+                </button>
+              </div>
+
+              {/* Step 2: Upload */}
+              <div className="rounded-xl p-4 border" style={{ borderColor: '#E5E7EB', background: '#FAFAFA' }}>
+                <p className="text-sm font-semibold mb-1" style={{ color: '#131B2B' }}>Step 2 — Upload your Excel file</p>
+                <p className="text-xs mb-3" style={{ color: '#6B7280' }}>
+                  Accepted columns: <span style={{ color: '#8A6F2F' }}>Title, Type, Location, Bedrooms, Bathrooms, Size, Price, Purpose, Furnished, Owner Name, Owner Contact, Owner Email, Description, Key Features, Status</span>
+                </p>
+                <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImportFile(f); }} />
+                <button onClick={() => fileInputRef.current?.click()} disabled={importing}
+                  className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white rounded-lg w-full justify-center"
+                  style={{ background: importing ? '#9CA3AF' : 'linear-gradient(135deg, #C9A96E, #8A6F2F)', cursor: importing ? 'not-allowed' : 'pointer' }}>
+                  <Upload className="w-4 h-4" />
+                  {importing ? 'Importing...' : 'Choose Excel File & Import'}
+                </button>
+              </div>
+
+              {/* Result */}
+              {importResult && (
+                <div className={`rounded-xl p-4 border ${importResult.imported > 0 ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+                  {importResult.imported > 0 && (
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle className="w-5 h-5 text-green-600" />
+                      <p className="text-sm font-semibold text-green-700">
+                        ✅ {importResult.imported} properties imported successfully
+                        {importResult.skipped > 0 && ` · ${importResult.skipped} skipped`}
+                      </p>
+                    </div>
+                  )}
+                  {importResult.errors?.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <AlertCircle className="w-4 h-4 text-red-500" />
+                        <p className="text-xs font-semibold text-red-600">Errors:</p>
+                      </div>
+                      <ul className="text-xs text-red-500 space-y-0.5 ml-6">
+                        {importResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-1">
+                <button onClick={() => { setShowImport(false); setImportResult(null); }}
+                  className="flex-1 py-2.5 text-sm font-semibold rounded-lg"
+                  style={{ background: '#F3F4F6', color: '#374151' }}>
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

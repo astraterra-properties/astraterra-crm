@@ -5,7 +5,7 @@
 # 2. PM2 home is at /data/.pm2
 # 3. PM2 binary is at /skeleton/.npm-global/bin/pm2
 
-PM2=/skeleton/.npm-global/bin/pm2
+PM2=$(which pm2 || find /data/.npm -name "pm2" -type f 2>/dev/null | head -1 || echo "/usr/local/bin/pm2")
 CRM=/data/.openclaw/workspace/astraterra-crm
 
 # ── Check if PM2 is managing the processes ────────────────────────────────────

@@ -16,7 +16,7 @@ if [ ! -f "$FRONTEND/.next/required-server-files.json" ]; then
 fi
 
 echo "✅ Build verified — restarting PM2..."
-$PM2 restart 2
+$PM2 restart crm-frontend
 sleep 5
 
 # Health check

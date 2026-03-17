@@ -5,8 +5,12 @@
 
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const XLSX = require('xlsx');
 const { query } = require('../config/database');
 const { authenticateToken, requireRole, requireMinRole } = require('../middleware/auth');
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 // Apply authentication to all routes
 router.use(authenticateToken);
@@ -478,6 +482,142 @@ router.get('/stats/overview', async (req, res) => {
     console.error('Error fetching property stats:', error);
     res.status(500).json({ error: 'Failed to fetch property statistics' });
   }
+});
+
+/**
+ * POST /api/properties/import
+ * Import properties from an Excel file (.xlsx / .xls / .csv)
+ * Accepted column names (case-insensitive, order doesn't matter):
+ *   Title, Type, Location, Bedrooms, Bathrooms, Size, Price,
+ *   Purpose, Furnished, Owner Name, Owner Contact, Owner Email,
+ *   Description, Key Features, Status
+ */
+router.post('/import', requireMinRole('agent'), upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+    if (!rows.length) return res.status(400).json({ error: 'Excel file is empty' });
+
+    // Normalise column names
+    const normalise = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+    const COL_MAP = {
+      title: ['title', 'propertytitle', 'name'],
+      type: ['type', 'propertytype'],
+      location: ['location', 'area', 'community', 'address'],
+      bedrooms: ['bedrooms', 'beds', 'br'],
+      bathrooms: ['bathrooms', 'baths'],
+      size: ['size', 'sqft', 'sqm', 'area'],
+      price: ['price', 'askingprice', 'listprice', 'value'],
+      purpose: ['purpose', 'saleorrent', 'category'],
+      furnished: ['furnished'],
+      owner_name: ['ownername', 'owner'],
+      owner_contact: ['ownercontact', 'ownermobile', 'ownerphone', 'ownertel'],
+      owner_email: ['owneremail'],
+      description: ['description', 'notes', 'remarks'],
+      key_features: ['keyfeatures', 'features', 'amenities'],
+      status: ['status'],
+    };
+
+    const firstRow = rows[0];
+    const colKeys = Object.keys(firstRow);
+    const colLookup = {};
+    for (const [field, aliases] of Object.entries(COL_MAP)) {
+      for (const key of colKeys) {
+        if (aliases.includes(normalise(key))) {
+          colLookup[field] = key;
+          break;
+        }
+      }
+    }
+
+    const get = (row, field) => {
+      const k = colLookup[field];
+      return k !== undefined ? String(row[k] || '').trim() : '';
+    };
+
+    let imported = 0;
+    let skipped = 0;
+    const errors = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      try {
+        const title = get(row, 'title') || `Imported Property ${Date.now()}-${i}`;
+        const price = parseFloat(get(row, 'price').replace(/[^0-9.]/g, '')) || 0;
+        const bedrooms = parseInt(get(row, 'bedrooms')) || null;
+        const bathrooms = parseInt(get(row, 'bathrooms')) || null;
+        const size = parseFloat(get(row, 'size').replace(/[^0-9.]/g, '')) || null;
+        const furnished = /yes|true|1/i.test(get(row, 'furnished')) ? 1 : 0;
+        const purpose = /rent/i.test(get(row, 'purpose')) ? 'rent' : 'sale';
+        const status = get(row, 'status') || 'available';
+        const propertyId = `PROP-${Date.now()}-${Math.floor(Math.random() * 9000) + 1000}`;
+
+        await query(
+          `INSERT INTO properties
+            (property_id, title, type, location, bedrooms, bathrooms, size, price, purpose,
+             furnished, owner_name, owner_contact, owner_email, description, key_features,
+             status, listed_date, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, date('now'), datetime('now'), datetime('now'))`,
+          [
+            propertyId,
+            title,
+            get(row, 'type') || 'apartment',
+            get(row, 'location'),
+            bedrooms,
+            bathrooms,
+            size,
+            price,
+            purpose,
+            furnished,
+            get(row, 'owner_name'),
+            get(row, 'owner_contact'),
+            get(row, 'owner_email'),
+            get(row, 'description'),
+            get(row, 'key_features'),
+            status,
+          ]
+        );
+        imported++;
+      } catch (rowErr) {
+        skipped++;
+        errors.push(`Row ${i + 2}: ${rowErr.message}`);
+      }
+    }
+
+    res.json({ success: true, imported, skipped, errors: errors.slice(0, 10) });
+  } catch (err) {
+    console.error('Import error:', err);
+    res.status(500).json({ error: 'Import failed: ' + err.message });
+  }
+});
+
+/**
+ * GET /api/properties/import/template
+ * Download a sample Excel template
+ */
+router.get('/import/template', requireMinRole('agent'), (req, res) => {
+  const wb = XLSX.utils.book_new();
+  const headers = [
+    'Title', 'Type', 'Location', 'Bedrooms', 'Bathrooms', 'Size (sqft)',
+    'Price (AED)', 'Purpose', 'Furnished', 'Owner Name', 'Owner Contact',
+    'Owner Email', 'Description', 'Key Features', 'Status'
+  ];
+  const sample = [
+    'Luxury 2BR in Marina', 'apartment', 'Dubai Marina', 2, 2, 1200,
+    1500000, 'sale', 'Yes', 'Ahmed Al Rashid', '+971501234567',
+    'ahmed@email.com', 'Stunning sea views, high floor', 'Pool, Gym, Parking', 'available'
+  ];
+  const ws = XLSX.utils.aoa_to_sheet([headers, sample]);
+  ws['!cols'] = headers.map(() => ({ wch: 20 }));
+  XLSX.utils.book_append_sheet(wb, ws, 'Properties');
+  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', 'attachment; filename="properties-import-template.xlsx"');
+  res.send(buf);
 });
 
 module.exports = router;
