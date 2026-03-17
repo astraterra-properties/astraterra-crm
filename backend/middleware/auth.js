@@ -5,6 +5,7 @@
 
 const jwt = require('jsonwebtoken');
 const { query } = require('../config/database');
+const JWT_SECRET = process.env.JWT_SECRET || 'astraterra-crm-jwt-secret-2026-secure-default-key';
 
 // Verify JWT token
 const authenticateToken = async (req, res, next) => {
@@ -16,7 +17,7 @@ const authenticateToken = async (req, res, next) => {
       return res.status(401).json({ error: 'Access token required' });
     }
 
-    jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
+    jwt.verify(token, JWT_SECRET, async (err, decoded) => {
       if (err) {
         return res.status(403).json({ error: 'Invalid or expired token' });
       }
@@ -98,7 +99,7 @@ const optionalAuth = async (req, res, next) => {
       return next();
     }
 
-    jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
+    jwt.verify(token, JWT_SECRET, async (err, decoded) => {
       if (err) {
         req.user = null;
         return next();

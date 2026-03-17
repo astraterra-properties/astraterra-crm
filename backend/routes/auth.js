@@ -10,6 +10,10 @@ const jwt = require('jsonwebtoken');
 const { query } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
+// Fallback JWT secret — ensures login never crashes if .env is missing JWT_SECRET
+const JWT_SECRET = process.env.JWT_SECRET || 'astraterra-crm-jwt-secret-2026-secure-default-key';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+
 /**
  * POST /api/auth/register
  * Register new user (admin only in production)
@@ -57,8 +61,8 @@ router.post('/register', async (req, res) => {
     // Generate JWT token
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
     );
 
     res.status(201).json({
@@ -123,8 +127,8 @@ router.post('/login', async (req, res) => {
     // Generate JWT token
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
     );
 
     res.json({
@@ -381,7 +385,7 @@ router.post('/verify-token', async (req, res) => {
       return res.status(400).json({ error: 'Token is required' });
     }
 
-    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
       if (err) {
         return res.status(403).json({ valid: false, error: 'Invalid or expired token' });
       }
