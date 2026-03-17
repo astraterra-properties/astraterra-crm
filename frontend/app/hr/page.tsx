@@ -547,7 +547,7 @@ export default function HRPage() {
   const trStyle = { borderColor: 'rgba(201,169,110,0.1)' };
 
   return (
-    <div className="flex-1 min-h-screen p-4 lg:p-6" style={{ background: '#0f1623' }}>
+    <div className="w-full p-4 lg:p-6" style={{ background: '#0f1623', minHeight: '100%' }}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
         <div className="flex items-center gap-3">
