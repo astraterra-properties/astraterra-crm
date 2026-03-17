@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import axios from 'axios'
 import { Eye, EyeOff, Star, Lock, Mail } from 'lucide-react'
 
@@ -133,6 +134,12 @@ export default function LoginPage() {
                 </div>
               </div>
 
+              <div className="flex justify-end -mt-1">
+                <Link href="/forgot-password" className="text-xs hover:underline" style={{ color: '#C9A96E' }}>
+                  Forgot password?
+                </Link>
+              </div>
+
               <button
                 type="submit"
                 disabled={loading}
@@ -155,9 +162,11 @@ export default function LoginPage() {
               </button>
             </form>
 
-            {/* Forgot password note */}
             <p className="mt-6 text-center text-xs" style={{ color: '#9CA3AF' }}>
-              Contact your administrator if you've forgotten your password.
+              Need access?{' '}
+              <Link href="/forgot-password" className="hover:underline" style={{ color: '#C9A96E' }}>
+                Reset your password
+              </Link>
             </p>
           </div>
         </div>

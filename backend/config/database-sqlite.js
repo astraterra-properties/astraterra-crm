@@ -49,6 +49,9 @@ const migrations = [
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
   )`,
+  // ── Password reset columns ──────────────────────────────────────────────────
+  "ALTER TABLE users ADD COLUMN reset_token TEXT",
+  "ALTER TABLE users ADD COLUMN reset_token_expires TEXT",
   // ── Chat tables ─────────────────────────────────────────────────────────────
   "ALTER TABLE chat_messages ADD COLUMN reply_to_id INTEGER",
   "ALTER TABLE chat_messages ADD COLUMN deleted_at DATETIME",
