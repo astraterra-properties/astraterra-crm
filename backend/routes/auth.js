@@ -454,7 +454,7 @@ router.post('/deploy', async (req, res) => {
   const dirs = ['/root/astraterra-crm', '/home/ubuntu/astraterra-crm', process.cwd() + '/..', process.cwd()];
   let projectDir = dirs.find(d => { try { require('fs').accessSync(d + '/.git'); return true; } catch(e) { return false; } });
   if (!projectDir) projectDir = process.cwd();
-  exec(`cd "${projectDir}" && git fetch origin && git reset --hard origin/main && node backend/scripts/migrate.js && echo PULLED`, { timeout: 120000 }, (err, stdout, stderr) => {
+  exec(`cd "${projectDir}" && git fetch origin && git clean -fd && git reset --hard origin/main && node backend/scripts/migrate.js && echo PULLED`, { timeout: 120000 }, (err, stdout, stderr) => {
     console.log('[Deploy] git pull + migrate + build:', stdout, stderr);
     setTimeout(() => process.exit(0), 1000); // pm2 will auto-restart
   });
