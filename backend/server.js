@@ -437,9 +437,10 @@ app.post('/api/internal/whatsapp-queue/:id/sent', async (req, res) => {
   const secret = req.headers['x-queue-secret'] || req.query.secret;
   if (secret !== WA_SECRET) return res.status(403).json({ error: 'Forbidden' });
   try {
+    await ensureWhatsappQueue();
     const { query: q } = require('./config/database-sqlite');
     await q(`UPDATE whatsapp_queue SET status = 'sent', sent_at = datetime('now') WHERE id = ?`, [req.params.id]);
-    res.json({ success: true });
+    res.json({ success: true }); // always 200 even if row not found (idempotent)
   } catch (e) {
     console.error('[WA Queue] Error marking sent:', e.message);
     res.status(500).json({ error: 'Failed', detail: e.message });
