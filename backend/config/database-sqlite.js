@@ -76,16 +76,24 @@ const migrations = [
 // Seed default admin users after migrations run (self-healing — runs on every startup)
 setTimeout(async () => {
   try {
+    const bcrypt = require('bcrypt');
+    // Ensure admin@astraterra.ae always exists (upsert on each startup)
+    const adminAstraHash = await bcrypt.hash('AstraTerra2026!', 12);
+    db.run(
+      `INSERT OR IGNORE INTO users (email,password_hash,name,role,active,profile_complete) VALUES (?,?,?,?,1,1)`,
+      ['admin@astraterra.ae', adminAstraHash, 'Admin', 'admin']
+    );
+
     db.get('SELECT COUNT(*) as cnt FROM users', [], async (err, row) => {
-      if (err || (row?.cnt || 0) > 0) return;
-      const bcrypt = require('bcrypt');
+      if (err) return;
+      // Always seed core users if missing
       const adminHash = await bcrypt.hash('qwerty@123', 12);
       const josephHash = await bcrypt.hash('joseph123', 12);
       db.run(`INSERT OR IGNORE INTO users (email,password_hash,name,role,active,profile_complete) VALUES (?,?,?,?,1,1)`,
         ['Test@admin.com', adminHash, 'Admin', 'admin']);
       db.run(`INSERT OR IGNORE INTO users (email,password_hash,name,role,active,profile_complete) VALUES (?,?,?,?,1,1)`,
         ['joseph@astraterra.ae', josephHash, 'Joseph Toubia', 'owner']);
-      console.log('✅ [DB] Default admin users seeded.');
+      console.log('✅ [DB] Default admin users seeded (admin@astraterra.ae, Test@admin.com, joseph@astraterra.ae).');
     });
   } catch(e) { console.error('[DB Seed Error]', e.message); }
 }, 2000);
