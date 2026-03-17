@@ -464,26 +464,46 @@ const WA_SECRET = process.env.WA_QUEUE_SECRET || 'astra-wa-queue-2026';
 async function ensureWhatsappQueue() {
   try {
     const { db } = require('./config/database-sqlite');
+    // Create whatsapp_queue table
     await new Promise((resolve, reject) => {
       db.run(`CREATE TABLE IF NOT EXISTS whatsapp_queue (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        phone TEXT NOT NULL,
-        recipient_name TEXT,
-        message TEXT NOT NULL,
-        notification_type TEXT DEFAULT 'general',
-        status TEXT DEFAULT 'pending',
-        sent_at TEXT,
-        created_at TEXT DEFAULT (datetime('now'))
+        phone TEXT NOT NULL, recipient_name TEXT, message TEXT NOT NULL,
+        notification_type TEXT DEFAULT 'general', status TEXT DEFAULT 'pending',
+        sent_at TEXT, created_at TEXT DEFAULT (datetime('now'))
       )`, (err) => { if (err && !err.message.includes('already exists')) reject(err); else resolve(); });
     });
-    // Add missing columns (idempotent — ignore "duplicate column" errors)
-    const addCols = [
+    // Add missing columns (idempotent)
+    for (const sql of [
       "ALTER TABLE whatsapp_queue ADD COLUMN recipient_name TEXT",
       "ALTER TABLE whatsapp_queue ADD COLUMN notification_type TEXT DEFAULT 'general'"
-    ];
-    for (const sql of addCols) {
-      await new Promise((resolve) => { db.run(sql, (err) => resolve()); });
-    }
+    ]) { await new Promise((resolve) => { db.run(sql, () => resolve()); }); }
+
+    // Also ensure users table exists with full schema (self-healing)
+    await new Promise((resolve) => {
+      db.run(`CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL, name TEXT NOT NULL, phone TEXT, role TEXT DEFAULT 'agent',
+        active INTEGER DEFAULT 1, profile_complete INTEGER DEFAULT 0, rera_number TEXT,
+        specialty TEXT, total_transactions INTEGER DEFAULT 0, about TEXT, avatar_url TEXT,
+        last_login TEXT, created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now'))
+      )`, () => resolve());
+    });
+    // Seed admin user if table is empty
+    db.get(`SELECT COUNT(*) as cnt FROM users`, [], async (err, row) => {
+      if (!err && (row?.cnt || 0) == 0) {
+        try {
+          const bcrypt = require('bcrypt');
+          const adminHash = await bcrypt.hash('qwerty@123', 12);
+          const josephHash = await bcrypt.hash('joseph123', 12);
+          db.run(`INSERT OR IGNORE INTO users (email,password_hash,name,role,active,profile_complete) VALUES (?,?,?,?,1,1)`,
+            ['Test@admin.com', adminHash, 'Admin', 'admin']);
+          db.run(`INSERT OR IGNORE INTO users (email,password_hash,name,role,active,profile_complete) VALUES (?,?,?,?,1,1)`,
+            ['joseph@astraterra.ae', josephHash, 'Joseph Toubia', 'owner']);
+          console.log('[DB Self-Heal] Admin users seeded.');
+        } catch(e) { console.error('[DB Self-Heal] Seed error:', e.message); }
+      }
+    });
   } catch (e) {
     console.error('[WA Queue] ensureWhatsappQueue error:', e.message);
   }
