@@ -341,6 +341,7 @@ app.use('/api/social', socialRoutes);
 app.use('/api/hr', hrRoutes);
 app.use('/api/pixxi', pixxiRoutes);
 app.use('/api/complaints', complaintsRoutes);
+app.use('/api/suggestions', require('./routes/suggestions'));
 app.use('/api/documents', documentsRoutes);
 app.use('/api/brochure-leads', brochureLeadsRoutes);
 app.use('/api/chat', chatRoutes);
@@ -388,21 +389,61 @@ app.all('/api/futures-pro/:path(*)', async (req, res) => {
 
 // Internal: WhatsApp notification queue (no auth token — uses secret header)
 const WA_SECRET = process.env.WA_QUEUE_SECRET || 'astra-wa-queue-2026';
-app.get('/api/internal/whatsapp-queue', async (req, res) => {
-  if (req.headers['x-queue-secret'] !== WA_SECRET) return res.status(403).json({ error: 'Forbidden' });
+
+// Self-healing: ensure whatsapp_queue table always exists with full schema
+async function ensureWhatsappQueue() {
   try {
+    const { db } = require('./config/database-sqlite');
+    await new Promise((resolve, reject) => {
+      db.run(`CREATE TABLE IF NOT EXISTS whatsapp_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        phone TEXT NOT NULL,
+        recipient_name TEXT,
+        message TEXT NOT NULL,
+        notification_type TEXT DEFAULT 'general',
+        status TEXT DEFAULT 'pending',
+        sent_at TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+      )`, (err) => { if (err && !err.message.includes('already exists')) reject(err); else resolve(); });
+    });
+    // Add missing columns (idempotent — ignore "duplicate column" errors)
+    const addCols = [
+      "ALTER TABLE whatsapp_queue ADD COLUMN recipient_name TEXT",
+      "ALTER TABLE whatsapp_queue ADD COLUMN notification_type TEXT DEFAULT 'general'"
+    ];
+    for (const sql of addCols) {
+      await new Promise((resolve) => { db.run(sql, (err) => resolve()); });
+    }
+  } catch (e) {
+    console.error('[WA Queue] ensureWhatsappQueue error:', e.message);
+  }
+}
+ensureWhatsappQueue();
+
+app.get('/api/internal/whatsapp-queue', async (req, res) => {
+  const secret = req.headers['x-queue-secret'] || req.headers['x-queue-secret'.toLowerCase()] || req.query.secret;
+  if (secret !== WA_SECRET) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    await ensureWhatsappQueue();
     const { query: q } = require('./config/database-sqlite');
     const result = await q(`SELECT * FROM whatsapp_queue WHERE status = 'pending' ORDER BY created_at ASC LIMIT 20`, []);
-    res.json({ notifications: result.rows });
-  } catch (e) { res.status(500).json({ error: 'Failed' }); }
+    res.json({ notifications: result.rows || [], count: (result.rows || []).length, status: 'ok' });
+  } catch (e) {
+    console.error('[WA Queue] Error fetching queue:', e.message);
+    res.status(500).json({ error: 'Failed', detail: e.message });
+  }
 });
 app.post('/api/internal/whatsapp-queue/:id/sent', async (req, res) => {
-  if (req.headers['x-queue-secret'] !== WA_SECRET) return res.status(403).json({ error: 'Forbidden' });
+  const secret = req.headers['x-queue-secret'] || req.query.secret;
+  if (secret !== WA_SECRET) return res.status(403).json({ error: 'Forbidden' });
   try {
     const { query: q } = require('./config/database-sqlite');
     await q(`UPDATE whatsapp_queue SET status = 'sent', sent_at = datetime('now') WHERE id = ?`, [req.params.id]);
     res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: 'Failed' }); }
+  } catch (e) {
+    console.error('[WA Queue] Error marking sent:', e.message);
+    res.status(500).json({ error: 'Failed', detail: e.message });
+  }
 });
 // (portals + notifications registered above before /api catchall)
 

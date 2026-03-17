@@ -733,7 +733,9 @@ const TABLES = [
   `CREATE TABLE IF NOT EXISTS whatsapp_queue (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     phone TEXT NOT NULL,
+    recipient_name TEXT,
     message TEXT NOT NULL,
+    notification_type TEXT DEFAULT 'general',
     status TEXT DEFAULT 'pending',
     sent_at TEXT,
     created_at TEXT DEFAULT (datetime('now'))
