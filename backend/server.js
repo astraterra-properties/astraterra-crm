@@ -249,6 +249,16 @@ pool.query("SELECT datetime('now') as now", (err, res) => {
 // Trust the first proxy (Cloudflare / nginx) so rate limiting uses real client IP
 app.set('trust proxy', 1);
 
+// ── Isabelle Heartbeat — update "last seen" on every request ─────────────────
+const fs_hb = require('fs');
+const HEARTBEAT_FILE = '/tmp/isabelle-heartbeat.json';
+app.use((req, res, next) => {
+  try {
+    fs_hb.writeFileSync(HEARTBEAT_FILE, JSON.stringify({ lastSeen: Date.now(), ts: new Date().toISOString() }));
+  } catch (e) {}
+  next();
+});
+
 // ── Security Middleware ───────────────────────────────────────────────────────
 
 // Helmet — sets secure HTTP headers (XSS, clickjacking, MIME sniffing, HSTS, etc.)
