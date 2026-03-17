@@ -583,22 +583,34 @@ const multerRestore = require('multer')({ dest: '/tmp/', limits: { fileSize: 100
 const fsRestore = require('fs');
 const pathRestore = require('path');
 
-router.post('/restore-db', multerRestore.single('db'), (req, res) => {
-  const secret = req.headers['x-restore-secret'];
-  if (secret !== 'astra-restore-db-2026-secure') return res.status(403).json({ error: 'Forbidden' });
-  if (!req.file) return res.status(400).json({ error: 'No DB file uploaded' });
+router.post('/restore-db', (req, res, next) => {
+  multerRestore.single('db')(req, res, (err) => {
+    if (err) {
+      console.error('[restore-db] Multer error:', err);
+      return res.status(500).json({ error: 'Upload error: ' + err.message });
+    }
+    try {
+      const secret = req.headers['x-restore-secret'];
+      if (secret !== 'astra-restore-db-2026-secure') return res.status(403).json({ error: 'Forbidden' });
+      if (!req.file) return res.status(400).json({ error: 'No DB file uploaded', headers: Object.keys(req.headers) });
 
-  const DB_PATH = pathRestore.join(__dirname, '../../../data/astraterra-crm.db');
-  const dataDir = pathRestore.dirname(DB_PATH);
-  if (!fsRestore.existsSync(dataDir)) fsRestore.mkdirSync(dataDir, { recursive: true });
+      const DB_PATH = pathRestore.join(__dirname, '../../../data/astraterra-crm.db');
+      console.log('[restore-db] Writing DB to:', DB_PATH, 'size:', req.file.size);
+      const dataDir = pathRestore.dirname(DB_PATH);
+      if (!fsRestore.existsSync(dataDir)) fsRestore.mkdirSync(dataDir, { recursive: true });
 
-  // Backup existing
-  if (fsRestore.existsSync(DB_PATH)) {
-    fsRestore.copyFileSync(DB_PATH, DB_PATH + '.backup-' + Date.now());
-  }
+      // Backup existing
+      if (fsRestore.existsSync(DB_PATH)) {
+        fsRestore.copyFileSync(DB_PATH, DB_PATH + '.backup-' + Date.now());
+      }
 
-  fsRestore.copyFileSync(req.file.path, DB_PATH);
-  try { fsRestore.unlinkSync(req.file.path); } catch(e) {}
+      fsRestore.copyFileSync(req.file.path, DB_PATH);
+      try { fsRestore.unlinkSync(req.file.path); } catch(e) {}
 
-  res.json({ success: true, message: 'DB uploaded. Run: pm2 restart astraterra-backend', size: req.file.size });
+      res.json({ success: true, message: 'DB uploaded. Restart backend to apply.', size: req.file.size, path: DB_PATH });
+    } catch(e) {
+      console.error('[restore-db] Error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
 });
