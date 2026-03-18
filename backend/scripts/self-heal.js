@@ -5,9 +5,10 @@
  * Runs on the VPS as a PM2 process. Handles:
  * 1. Health check every 15 min — CRM backend, VPS disk/memory
  * 2. Dead man's switch — Telegram alert if Isabelle hasn't responded in 30 min
- * 3. Daily status report — 8 AM Dubai time via Telegram
+ * 3. Daily status report — 8 AM Dubai time via BOTH Telegram AND WhatsApp
  * 4. Auto-restart CRM if down
- * 5. WhatsApp watchdog — checks every 10 min, docker restarts if disconnected
+ * 5. WhatsApp watchdog — checks every 5 min, docker restarts if disconnected
+ * 6. Pre-emptive container restart at 4am, 10am, 4pm, 10pm Dubai time
  */
 
 const https = require('https');
@@ -25,7 +26,9 @@ const OPENCLAW_HOST_PORT = 59053;                  // host-mapped container port
 const CRM_URL = 'http://localhost:3001/api/health';
 const CRM_FRONTEND_URL = 'http://localhost:3000';
 const HEALTH_INTERVAL_MS = 15 * 60 * 1000;        // 15 minutes
-const WA_CHECK_INTERVAL_MS = 10 * 60 * 1000;      // 10 minutes
+const WA_CHECK_INTERVAL_MS = 5 * 60 * 1000;       // 5 minutes (was 10)
+// Pre-emptive restart hours (Dubai time): 4am, 10am, 4pm, 10pm
+const PREEMPTIVE_RESTART_HOURS_DUBAI = [4, 10, 16, 22];
 const DEAD_MAN_THRESHOLD_MS = 30 * 60 * 1000;     // 30 minutes
 const LOG_FILE = '/tmp/self-heal.log';
 const HEARTBEAT_FILE = '/tmp/isabelle-heartbeat.json';
@@ -431,7 +434,7 @@ async function maybeSendDailyReport() {
 
   if (dubaiHour === DAILY_REPORT_HOUR_DUBAI && lastDailyReportDate !== todayDate) {
     lastDailyReportDate = todayDate;
-    log('📊 Sending daily status report...');
+    log('📊 Sending daily status report (Telegram + WhatsApp)...');
 
     const { crmResult, frontendResult, stats, pm2 } = await runHealthCheck(false);
 
@@ -446,6 +449,7 @@ async function maybeSendDailyReport() {
       ? pm2.map(p => `  • ${p.name}: ${p.status} (↺${p.restarts})`).join('\n')
       : '  (unable to read PM2)';
 
+    // Send Telegram detailed report
     await sendTelegram(
       `🌅 <b>Good morning Joseph! Daily Status Report</b>\n` +
       `📅 ${nowUtc.toDateString()}\n\n` +
@@ -461,6 +465,48 @@ async function maybeSendDailyReport() {
       `<b>Recent Issues (last 24h):</b>\n${recentErrors}\n\n` +
       `<i>Have a great day! — Isabelle 🏢</i>`
     );
+
+    // ── WhatsApp morning message to Joseph ────────────────────────────────
+    const crmStatus = (crmResult.ok && frontendResult.ok) ? '✅' : '⚠️';
+    const waMsg = `🟢 Isabelle online — all systems good\n\n` +
+      `📅 ${nowUtc.toDateString()} | 8:00 AM Dubai\n` +
+      `${crmStatus} CRM: ${crmResult.ok ? 'Online' : 'DOWN'}\n` +
+      `📱 WhatsApp: Active (${waState.restartCount} auto-restarts)\n` +
+      `💾 Disk: ${stats.disk} | 🧠 RAM: ${stats.mem}`;
+    await sendWhatsApp(waMsg);
+    log('✅ Morning WhatsApp sent to Joseph');
+  }
+}
+
+// ─── Pre-emptive container restart ─────────────────────────────────────────
+// Restarts at 4am, 10am, 4pm, 10pm Dubai time to prevent stale connections
+let lastPreemptiveRestartHour = -1;
+
+async function maybePreemptiveRestart() {
+  const nowUtc = new Date();
+  const dubaiHour = (nowUtc.getUTCHours() + 4) % 24;
+  const dubaiMin = nowUtc.getUTCMinutes();
+
+  // Only fire in the first 5 minutes of the target hour, once per hour
+  if (
+    PREEMPTIVE_RESTART_HOURS_DUBAI.includes(dubaiHour) &&
+    dubaiMin < 5 &&
+    lastPreemptiveRestartHour !== dubaiHour
+  ) {
+    lastPreemptiveRestartHour = dubaiHour;
+    const dubaiTime = new Date().toLocaleString('en-AE', { timeZone: 'Asia/Dubai', hour12: false });
+    log(`🔄 Pre-emptive restart at ${dubaiTime} (Dubai hour ${dubaiHour})`);
+
+    try {
+      execSync(`docker restart ${DOCKER_CONTAINER}`, { timeout: 60000 });
+      log('✅ Pre-emptive restart completed');
+      // Wait for container to come back
+      await new Promise(r => setTimeout(r, 45000));
+      log('✅ Container back up after pre-emptive restart');
+    } catch (e) {
+      log(`❌ Pre-emptive restart failed: ${e.message}`);
+      await sendTelegram(`⚠️ <b>Pre-emptive restart failed</b>\nHour: ${dubaiHour}:00 Dubai\nError: ${e.message}`);
+    }
   }
 }
 
@@ -468,15 +514,17 @@ async function maybeSendDailyReport() {
 async function main() {
   loadWaState();
   log('🚀 Isabelle self-healing system started');
-  log(`📱 WhatsApp watchdog: checks every 10 min, alerts ${JOSEPH_WA_NUMBER}`);
+  log(`📱 WhatsApp watchdog: checks every 5 min, alerts ${JOSEPH_WA_NUMBER}`);
   log(`🐳 Docker container: ${DOCKER_CONTAINER}`);
+  log(`🔄 Pre-emptive restarts: ${PREEMPTIVE_RESTART_HOURS_DUBAI.map(h => h+':00').join(', ')} Dubai time`);
 
   await sendTelegram(
     '🤖 <b>Isabelle Self-Healing System</b> is now active.\n\n' +
-    '✅ WhatsApp watchdog (every 10 min)\n' +
+    '✅ WhatsApp watchdog (every <b>5 min</b>)\n' +
     '✅ CRM health checks (every 15 min)\n' +
     '✅ Dead man\'s switch (30 min)\n' +
-    '✅ Daily report at 8 AM Dubai'
+    '✅ Daily report at 8 AM Dubai (Telegram + <b>WhatsApp</b>)\n' +
+    '✅ Pre-emptive restarts: 4am, 10am, 4pm, 10pm Dubai'
   );
 
   // Initial checks
@@ -490,14 +538,17 @@ async function main() {
     await maybeSendDailyReport();
   }, HEALTH_INTERVAL_MS);
 
-  // WhatsApp watchdog every 10 min
+  // WhatsApp watchdog every 5 min (was 10)
   setInterval(runWhatsAppWatchdog, WA_CHECK_INTERVAL_MS);
 
   // Dead man's switch every 5 min
   setInterval(checkDeadManSwitch, 5 * 60 * 1000);
 
-  // Daily report check every hour
-  setInterval(maybeSendDailyReport, 60 * 60 * 1000);
+  // Daily report + pre-emptive restart check every 5 min
+  setInterval(async () => {
+    await maybeSendDailyReport();
+    await maybePreemptiveRestart();
+  }, 5 * 60 * 1000);
 }
 
 module.exports = { updateHeartbeat, sendTelegram, log };
