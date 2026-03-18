@@ -81,5 +81,30 @@ module.exports = {
       max_restarts: 50,
       restart_delay: 10000,
     },
+    {
+      // Isabelle self-healing system:
+      // - WhatsApp watchdog every 5 min → docker restart if disconnected
+      // - Pre-emptive restarts at 4am/10am/4pm/10pm Dubai
+      // - 8am WhatsApp "Isabelle online" morning message
+      // - Dead man's switch, CRM health checks
+      name: 'isabelle-self-heal',
+      cwd: path.join(ROOT, 'backend', 'scripts'),
+      script: 'self-heal.js',
+      exec_mode: 'fork',
+      env: {
+        NODE_ENV: 'production',
+      },
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '150M',
+      kill_timeout: 5000,
+      error_file: '/data/.pm2/logs/isabelle-self-heal-error.log',
+      out_file: '/data/.pm2/logs/isabelle-self-heal-out.log',
+      merge_logs: true,
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+      max_restarts: 50,
+      restart_delay: 15000,
+    },
   ],
 };
