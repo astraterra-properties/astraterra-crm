@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
 const { authenticateToken, requireRole, requireMinRole } = require('../middleware/auth');
+const { triggerLeadSync } = require('../services/paperclip-sync');
 
 // Apply authentication to all routes
 router.use(authenticateToken);
@@ -325,7 +326,18 @@ router.post('/', async (req, res) => {
       next_followup_date,
     ]);
 
-    res.status(201).json(result.rows[0]);
+    const createdLead = result.rows[0];
+
+    if (createdLead?.id) {
+      triggerLeadSync({
+        leadId: createdLead.id,
+        trigger: 'lead_created',
+        changedFields: Object.keys(req.body || {}),
+        initiatedBy: req.user?.email || req.user?.id || 'crm_user',
+      });
+    }
+
+    res.status(201).json(createdLead);
   } catch (error) {
     console.error('Error creating lead:', error);
     res.status(500).json({ error: 'Failed to create lead' });
@@ -404,7 +416,10 @@ router.put('/:id', async (req, res) => {
     const values = [];
     let paramCount = 1;
 
-    if (status         !== undefined) { updates.push(`status = $${paramCount++}`);          values.push(status); }
+    if (name           !== undefined) { updates.push(`name = $${paramCount++}`);             values.push(name); }
+    if (phone          !== undefined) { updates.push(`phone = $${paramCount++}`);            values.push(phone); }
+    if (email          !== undefined) { updates.push(`email = $${paramCount++}`);            values.push(email); }
+    if (status         !== undefined) { updates.push(`status = $${paramCount++}`);           values.push(status); }
     if (priority       !== undefined) { updates.push(`priority = $${paramCount++}`);         values.push(priority); }
     if (assigned_to    !== undefined) { updates.push(`assigned_to = $${paramCount++}`);      values.push(assigned_to); }
     if (budget         !== undefined) { updates.push(`budget = $${paramCount++}`);           values.push(budget); }
@@ -462,7 +477,16 @@ router.put('/:id', async (req, res) => {
       WHERE l.id = ?
     `, [id]);
 
-    res.json(fullLead.rows[0] || result.rows[0]);
+    const responseLead = fullLead.rows[0] || result.rows[0];
+
+    triggerLeadSync({
+      leadId: id,
+      trigger: 'lead_updated',
+      changedFields: Object.keys(req.body || {}),
+      initiatedBy: req.user?.email || req.user?.id || 'crm_user',
+    });
+
+    res.json(responseLead);
   } catch (error) {
     console.error('Error updating lead:', error);
     res.status(500).json({ error: 'Failed to update lead' });
