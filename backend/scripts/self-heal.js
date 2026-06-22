@@ -17,6 +17,11 @@ const { execSync, exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
+// Load backend/.env so TELEGRAM_BOT_TOKEN (and friends) are available even
+// though this runs as its own PM2 process (server.js loads dotenv separately).
+// Without this the token is empty and every sendTelegram() silently no-ops.
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
 // ─── Config ────────────────────────────────────────────────────────────────
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const JOSEPH_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '8117376630';
@@ -514,6 +519,9 @@ async function maybePreemptiveRestart() {
 async function main() {
   loadWaState();
   log('🚀 Isabelle self-healing system started');
+  if (!BOT_TOKEN) {
+    log('⚠️ TELEGRAM_BOT_TOKEN is not set — all Telegram alerts/check-marks will be skipped. Set it in backend/.env');
+  }
   log(`📱 WhatsApp watchdog: checks every 5 min, alerts ${JOSEPH_WA_NUMBER}`);
   log(`🐳 Docker container: ${DOCKER_CONTAINER}`);
   log(`🔄 Pre-emptive restarts: ${PREEMPTIVE_RESTART_HOURS_DUBAI.map(h => h+':00').join(', ')} Dubai time`);
