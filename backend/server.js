@@ -367,6 +367,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/portals', portalsRoutes);         // ⚠️ Must be before /api catchall — webhook routes are public
 app.use('/api/notifications', notificationsRoutes); // ⚠️ Must be before /api catchall
 app.use('/api/email-own', require('./routes/email-own')); // ⚠️ Must be before /api catchall — /welcome + /subscribe are public
+app.use('/api/email-marketing', require('./routes/email-marketing')); // ⚠️ Must be before /api catchall — /t/* tracking + /u/* unsubscribe are public
 // Public inbound lead webhook (no auth) — extracted from leadActivityRoutes to avoid wildcard /:contactId interference
 app.post('/api/leads/inbound', require('./routes/inbound-lead'));
 app.use('/api/leads', leadsRoutes);
@@ -583,6 +584,18 @@ app.get('/api/brand-assets-download', (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Astraterra CRM API running on port ${PORT}`);
   console.log(`📊 Dashboard: http://localhost:${PORT}/health`);
+
+  // In-house email marketing engine: tables, queue worker, automation scheduler
+  (async () => {
+    try {
+      const { ensureEmailTables } = require('./services/email-tables');
+      await ensureEmailTables();
+      require('./services/email-queue').startWorker();
+      require('./services/email-automation').startScheduler();
+    } catch (e) {
+      console.error('[email] startup error:', e.message);
+    }
+  })();
 });
 
 module.exports = app;
