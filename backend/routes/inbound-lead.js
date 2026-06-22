@@ -5,7 +5,6 @@
  */
 
 const { query } = require('../config/database');
-const { chromium } = require('playwright');
 const { triggerLeadSync } = require('../services/paperclip-sync');
 
 const ADMIN_GMAIL = 'admin@astraterra.ae';
@@ -28,6 +27,10 @@ function buildJosephNotification({ name, email, phone, source }) {
 }
 
 async function sendEmailViaGmailUi({ to, subject, body }) {
+  // Required lazily: playwright is an optional, heavy dependency only needed for
+  // this Gmail-UI fallback. Requiring it at module load crashed the backend on
+  // any deploy where playwright isn't installed (it's not in package.json).
+  const { chromium } = require('playwright');
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1200 } });
