@@ -27,6 +27,7 @@ import {
   Building,
   KanbanSquare,
   Mail,
+  Zap,
   Share2,
   Users2,
   UserCircle,
@@ -97,6 +98,7 @@ const allMenuGroups = [
     minRole: 'admin',
     items: [
       { name: 'Email Marketing', path: '/email-marketing', icon: Mail,   minRole: 'admin' },
+      { name: 'Email Automation',path: '/email-automation',icon: Zap,    minRole: 'admin' },
       { name: 'Social Media',    path: '/social-media',    icon: Share2, minRole: 'admin' },
     ]
   },
